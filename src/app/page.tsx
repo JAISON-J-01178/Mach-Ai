@@ -30,7 +30,6 @@ function MachiApp() {
   const [language, setLanguage] = useState('auto');
   const [isLoading, setIsLoading] = useState(false);
 
-  // World-First 3D Meme Mood Synthesizer State
   const [mood, setMood] = useState<MoodSettings>({
     massLevel: 80,
     kalaaiLevel: 75,
@@ -84,7 +83,6 @@ function MachiApp() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  // Handle New Chat creation (Enforces 2-conversation limit rule)
   const handleNewChat = () => {
     const newId = Date.now().toString();
     const newThread: ChatThread = {
@@ -239,7 +237,7 @@ function MachiApp() {
 
       {/* Main Container */}
       <main className="relative z-10 flex-1 flex flex-col w-full max-w-4xl mx-auto px-4 py-4 mb-28">
-        {/* Welcome State (Shows prompt cards & persona selector ONLY BEFORE first message!) */}
+        {/* Welcome State */}
         {messages.length === 0 && (
           <div className="my-auto py-6 text-center flex flex-col items-center justify-center animate-fadeIn">
             <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-3xl p-1 bg-gradient-to-tr from-cyan-500 via-blue-500 to-purple-600 shadow-2xl shadow-cyan-500/30 mb-4 animate-float">
@@ -259,10 +257,7 @@ function MachiApp() {
               Smart • Friendly • Always Here
             </p>
 
-            {/* Persona Cards (Will auto disappear after first message!) */}
             <PersonaSelector currentPersona={persona} setPersona={setPersona} />
-
-            {/* Quick Prompts Chips (Will auto disappear after clicking!) */}
             <QuickPrompts onSelectPrompt={(prompt) => handleSendMessage(prompt)} />
           </div>
         )}
@@ -290,7 +285,7 @@ function MachiApp() {
         )}
       </main>
 
-      {/* Input Bar (Clean without voice buttons!) */}
+      {/* Input Bar */}
       <div className="fixed bottom-0 left-0 right-0 z-30 p-3 sm:p-4 glass-panel border-t border-slate-800/80">
         <div className="max-w-4xl mx-auto flex items-center gap-2">
           <form
@@ -332,7 +327,9 @@ function MachiApp() {
 }
 
 export default function Home() {
-  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '1084293847291-exampleclientid.apps.googleusercontent.com';
+  const googleClientId =
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+    '560458778439-b96elns70cmk03r33spt91c2qkjlsc9c.apps.googleusercontent.com';
 
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
