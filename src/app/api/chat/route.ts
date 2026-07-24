@@ -14,7 +14,6 @@ Rules for your personality:
 - Respond in natural Tanglish (Tamil in English script), Pure Tamil, or English based on user input.
 - Address the user affectionately by their name if provided, or as "Machi", "Bro", "Thala".
 - Be warm, encouraging, smart, and helpful.
-- Use natural conversational Tamil words like "Sema", "Mass", "Kavalaiya vidu machi", "Gethu".
 - Never mention internal model names, API keys, or technical server code. You are MACHI Ai!`,
 
   cinema: `You are "MACHI Ai" (உன் தோழன், உன் AI நண்பன் - Cinema & Meme Persona)!
@@ -28,20 +27,18 @@ Rules for your personality:
 Rules for your personality:
 - Playfully roast and joke with the user in funny Tamil comedy style (Vadivelu/Goundamani style banter).
 - Use funny Tamil phrases like "Aahaa.. என்ன ஒரு புத்திசாலித்தனம்!", "Thambi, ennada idhu?", "Machi neeyaa idhu?".
-- Keep it 100% friendly, lighthearted, and funny.
-- Fulfill the query accurately after a funny Tamil intro!`,
+- Keep it 100% friendly, lighthearted, and funny.`,
 
   pro: `You are "MACHI Ai" (உன் தோழன், உன் AI நண்பன் - Professional & Smart Persona)!
 Rules for your personality:
 - Provide clean, highly structured, precise answers for coding, resumes, math, translation, and work.
-- Maintain a warm "Machi" touch while prioritizing excellence and clear explanations.
-- Excellent formatting with code snippets and markdown.`
+- Maintain a warm "Machi" touch while prioritizing excellence and clear explanations.`
 };
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { messages = [], persona = 'chill', language = 'auto', userName = '' } = body;
+    const { messages = [], persona = 'chill', language = 'auto', userName = '', mood } = body;
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
@@ -51,9 +48,19 @@ export async function POST(req: Request) {
     }
 
     const baseSystemPrompt = PERSONA_PROMPTS[persona] || PERSONA_PROMPTS.chill;
+    
     let nameInstruction = '';
     if (userName && userName !== 'Machi User') {
-      nameInstruction = `\nThe user's name is "${userName}". Remember their name and address them warmly as "${userName}" or "${userName} Machi"!`;
+      nameInstruction = `\nThe user's name is "${userName}". Address them warmly as "${userName}" or "${userName} Machi"!`;
+    }
+
+    let moodInstruction = '';
+    if (mood) {
+      moodInstruction = `\nREAL-TIME 3D HUMOR MATRIX SETTINGS:
+- Cinema Mass Intensity: ${mood.massLevel}% (Use Tamil cinema dialogues accordingly)
+- Kalaai Roast Level: ${mood.kalaaiLevel}% (Use Tamil comedy banter)
+- Natpu Warmth: ${mood.natpuScore}% (Use friendly care)
+- Preferred Slang Dialect: ${mood.dialect} (Adapt Tamil words for ${mood.dialect} dialect!)`;
     }
 
     let languageInstruction = '';
@@ -65,7 +72,7 @@ export async function POST(req: Request) {
       languageInstruction = '\nUser preferred language: English (with friendly Tamil bro terms).';
     }
 
-    const fullSystemPrompt = `${baseSystemPrompt}${nameInstruction}${languageInstruction}`;
+    const fullSystemPrompt = `${baseSystemPrompt}${nameInstruction}${moodInstruction}${languageInstruction}`;
 
     const formattedMessages = [
       { role: 'system', content: fullSystemPrompt },
@@ -75,7 +82,6 @@ export async function POST(req: Request) {
       }))
     ];
 
-    // Multi-Provider Silent Failover Pool
     const providers = [
       {
         url: 'https://api.groq.com/openai/v1/chat/completions',
@@ -128,20 +134,16 @@ export async function POST(req: Request) {
           const reply = data.choices?.[0]?.message?.content;
 
           if (reply && reply.trim().length > 0) {
-            // Return response ONLY without any provider/model names
-            return NextResponse.json({
-              reply: reply.trim()
-            });
+            return NextResponse.json({ reply: reply.trim() });
           }
         }
       } catch {
-        // Silent failover to next provider key
+        // Silent failover
       }
     }
 
-    // Fallback response if all API keys fail
     return NextResponse.json({
-      reply: `Machi! Server chota busy ah iruku. Don't worry, namma retry pannalam. Try typing again in 2 seconds! Gethu Machi! 🚀`
+      reply: `Machi! Server busy ah iruku. Retry pannalam! 🚀`
     });
 
   } catch (err: unknown) {

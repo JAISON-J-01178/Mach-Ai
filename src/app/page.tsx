@@ -2,23 +2,26 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Image from 'next/image';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from '@/lib/authContext';
 import { Header } from '@/components/Header';
 import { PersonaSelector } from '@/components/PersonaSelector';
 import { QuickPrompts } from '@/components/QuickPrompts';
 import { MessageItem, Message } from '@/components/MessageItem';
-import { VoiceInput } from '@/components/VoiceInput';
 import { SplashScreen } from '@/components/SplashScreen';
 import { ThreeBackground } from '@/components/ThreeBackground';
 import { Ticker3D } from '@/components/Ticker3D';
 import { AuthModal } from '@/components/AuthModal';
+import { NavigationSidebar } from '@/components/NavigationSidebar';
+import { MoodSynthesizer3D, MoodSettings } from '@/components/MoodSynthesizer3D';
 import { getSavedThreads, saveThreads, getUserMemory, saveUserMemory, ChatThread } from '@/lib/memoryEngine';
-import { Send, Loader2, RefreshCw, MessageSquare, Sparkles } from 'lucide-react';
+import { Send, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 
 function MachiApp() {
   const { user } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(false);
 
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string>('');
@@ -26,6 +29,14 @@ function MachiApp() {
   const [persona, setPersona] = useState('chill');
   const [language, setLanguage] = useState('auto');
   const [isLoading, setIsLoading] = useState(false);
+
+  // World-First 3D Meme Mood Synthesizer State
+  const [mood, setMood] = useState<MoodSettings>({
+    massLevel: 80,
+    kalaaiLevel: 75,
+    natpuScore: 90,
+    dialect: 'tanglish'
+  });
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -49,7 +60,7 @@ function MachiApp() {
     }
   }, []);
 
-  // Update current user memory if user changes name
+  // Sync user memory
   useEffect(() => {
     if (user && user.name) {
       const mem = getUserMemory(user.name);
@@ -58,7 +69,6 @@ function MachiApp() {
     }
   }, [user]);
 
-  // Current active messages memoized
   const activeThread = useMemo(
     () => threads.find((t) => t.id === activeThreadId) || threads[0],
     [threads, activeThreadId]
@@ -87,6 +97,15 @@ function MachiApp() {
     const updatedThreads = saveThreads([newThread, ...threads]);
     setThreads(updatedThreads);
     setActiveThreadId(newId);
+  };
+
+  const handleDeleteThread = (id: string) => {
+    const remaining = threads.filter((t) => t.id !== id);
+    const updated = saveThreads(remaining);
+    setThreads(updated);
+    if (activeThreadId === id && updated.length > 0) {
+      setActiveThreadId(updated[0].id);
+    }
   };
 
   const handleSendMessage = async (customText?: string) => {
@@ -130,7 +149,8 @@ function MachiApp() {
           messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
           persona,
           language,
-          userName: memory.userName || user?.name || ''
+          userName: memory.userName || user?.name || '',
+          mood
         })
       });
 
@@ -162,7 +182,7 @@ function MachiApp() {
       const fallbackMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Machi! Connection chota slow ah iruku. Let us try again in 2 seconds! 🚀',
+        content: 'Machi! Connection chota slow ah iruku. Retry in 2 seconds! 🚀',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       const finalMessages = [...updatedMessages, fallbackMsg];
@@ -183,11 +203,23 @@ function MachiApp() {
       {/* Splash Screen */}
       {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
 
-      {/* 3D Particle Canvas Background */}
+      {/* 3D Particle Background */}
       <ThreeBackground />
 
       {/* Auth Modal */}
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+
+      {/* Navigation Drawer */}
+      <NavigationSidebar
+        isOpen={showSidebar}
+        onClose={() => setShowSidebar(false)}
+        threads={threads}
+        activeThreadId={activeThreadId}
+        onSelectThread={(id) => setActiveThreadId(id)}
+        onNewChat={handleNewChat}
+        onDeleteThread={handleDeleteThread}
+        onOpenAuth={() => setShowAuthModal(true)}
+      />
 
       {/* Header */}
       <Header
@@ -195,43 +227,21 @@ function MachiApp() {
         setLanguage={setLanguage}
         onOpenAuth={() => setShowAuthModal(true)}
         onNewChat={handleNewChat}
+        onToggleSidebar={() => setShowSidebar(true)}
         threadsCount={threads.length}
       />
 
-      {/* 3D Infinite Ticker Text */}
+      {/* 3D Infinite Ticker */}
       <Ticker3D />
+
+      {/* World-First 3D Meme Mood Synthesizer Matrix */}
+      <MoodSynthesizer3D mood={mood} setMood={setMood} />
 
       {/* Main Container */}
       <main className="relative z-10 flex-1 flex flex-col w-full max-w-4xl mx-auto px-4 py-4 mb-28">
-        {/* Thread Tabs (Max 2 Saved Chats) */}
-        {threads.length > 1 && (
-          <div className="flex items-center gap-2 mb-3 overflow-x-auto py-1 px-1">
-            <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
-              <MessageSquare className="w-3.5 h-3.5 text-cyan-400" />
-              <span>Saved Chats (Max 2):</span>
-            </span>
-            {threads.map((t, idx) => (
-              <button
-                key={t.id}
-                onClick={() => setActiveThreadId(t.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
-                  t.id === activeThreadId
-                    ? 'bg-cyan-600 text-white border-cyan-400 shadow-md shadow-cyan-500/20'
-                    : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                Chat {idx + 1}: {t.title.slice(0, 18)}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Persona Selector */}
-        <PersonaSelector currentPersona={persona} setPersona={setPersona} />
-
-        {/* Welcome State */}
+        {/* Welcome State (Shows prompt cards & persona selector ONLY BEFORE first message!) */}
         {messages.length === 0 && (
-          <div className="my-auto py-8 text-center flex flex-col items-center justify-center animate-fadeIn">
+          <div className="my-auto py-6 text-center flex flex-col items-center justify-center animate-fadeIn">
             <div className="relative w-24 h-24 sm:w-28 sm:h-28 rounded-3xl p-1 bg-gradient-to-tr from-cyan-500 via-blue-500 to-purple-600 shadow-2xl shadow-cyan-500/30 mb-4 animate-float">
               <div className="w-full h-full bg-slate-950 rounded-[22px] overflow-hidden relative">
                 <Image src="/logo.jpg" alt="MACHI Ai" fill className="object-cover" />
@@ -246,14 +256,18 @@ function MachiApp() {
             </p>
             <p className="text-xs text-slate-400 max-w-md mx-auto mb-6">
               {user?.name ? `Welcome back, ${user.name}! ` : ''}
-              Smart • Friendly • Always Here for Tamil & English Chat
+              Smart • Friendly • Always Here
             </p>
 
+            {/* Persona Cards (Will auto disappear after first message!) */}
+            <PersonaSelector currentPersona={persona} setPersona={setPersona} />
+
+            {/* Quick Prompts Chips (Will auto disappear after clicking!) */}
             <QuickPrompts onSelectPrompt={(prompt) => handleSendMessage(prompt)} />
           </div>
         )}
 
-        {/* Messages */}
+        {/* Message Feed */}
         {messages.length > 0 && (
           <div className="flex flex-col gap-4 py-2">
             {messages.map((msg) => (
@@ -276,7 +290,7 @@ function MachiApp() {
         )}
       </main>
 
-      {/* Input Bar */}
+      {/* Input Bar (Clean without voice buttons!) */}
       <div className="fixed bottom-0 left-0 right-0 z-30 p-3 sm:p-4 glass-panel border-t border-slate-800/80">
         <div className="max-w-4xl mx-auto flex items-center gap-2">
           <form
@@ -293,13 +307,6 @@ function MachiApp() {
               placeholder="Enna machi kekkanum? (Type in Tamil, Tanglish or English)..."
               className="w-full bg-transparent border-none outline-none text-sm text-slate-100 placeholder-slate-500 py-1.5 font-sans"
               disabled={isLoading}
-            />
-
-            <VoiceInput
-              language={language}
-              onTranscript={(transcript) => {
-                setInput((prev) => (prev ? `${prev} ${transcript}` : transcript));
-              }}
             />
 
             <button
@@ -325,9 +332,13 @@ function MachiApp() {
 }
 
 export default function Home() {
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '1084293847291-exampleclientid.apps.googleusercontent.com';
+
   return (
-    <AuthProvider>
-      <MachiApp />
-    </AuthProvider>
+    <GoogleOAuthProvider clientId={googleClientId}>
+      <AuthProvider>
+        <MachiApp />
+      </AuthProvider>
+    </GoogleOAuthProvider>
   );
 }
