@@ -40,20 +40,18 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
       />
 
       {/* Drawer */}
-      <div className="relative z-10 w-80 max-w-[85vw] h-full bg-slate-950 border-r border-slate-800/80 flex flex-col p-5 shadow-2xl animate-slideRight">
+      <div className="relative z-10 w-80 max-w-[85vw] h-full bg-slate-950 border-r border-slate-800 flex flex-col p-5 shadow-2xl animate-slideRight">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="relative w-10 h-10 rounded-xl overflow-hidden p-0.5 bg-gradient-to-tr from-cyan-500 to-purple-600 shadow-md">
-              <div className="w-full h-full bg-slate-950 rounded-[10px] overflow-hidden relative">
-                <Image src="/logo.jpg" alt="MACHI Ai" fill className="object-cover" />
-              </div>
+            <div className="relative w-9 h-9 rounded-xl overflow-hidden border border-slate-700">
+              <Image src="/logo.jpg" alt="MACHI Ai" fill className="object-cover" />
             </div>
             <div>
-              <h2 className="text-lg font-extrabold tracking-wider gradient-text-cyan font-heading">
+              <h2 className="text-base font-bold tracking-tight text-slate-100 font-heading">
                 MACHI Ai
               </h2>
-              <p className="text-[10px] text-slate-400 font-semibold font-heading">
+              <p className="text-[10px] text-slate-400 font-medium font-heading">
                 உன் தோழன், உன் AI நண்பன்
               </p>
             </div>
@@ -73,18 +71,18 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
               onNewChat();
               onClose();
             }}
-            className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-bold shadow-lg shadow-cyan-500/20 transition-all active:scale-95"
+            className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-slate-900 border border-slate-700 hover:border-sky-500/50 text-slate-100 text-xs font-semibold shadow-sm transition-all active:scale-95"
           >
-            <Plus className="w-4 h-4" />
-            <span>New Chat (2 Max Saved)</span>
+            <Plus className="w-4 h-4 text-sky-400" />
+            <span>New Conversation (2 Max)</span>
           </button>
         </div>
 
-        {/* Saved Conversations List (Rule: Max 2) */}
+        {/* Conversations List */}
         <div className="flex-1 overflow-y-auto space-y-2 py-2">
           <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">
             <span>Saved Conversations ({threads.length}/2)</span>
-            <Brain className="w-3.5 h-3.5 text-cyan-400" />
+            <Brain className="w-3.5 h-3.5 text-purple-400" />
           </div>
 
           {threads.length === 0 ? (
@@ -97,7 +95,7 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                   key={t.id}
                   className={`group flex items-center justify-between p-3 rounded-xl transition-all border cursor-pointer ${
                     isActive
-                      ? 'bg-slate-900 border-cyan-500/50 text-cyan-300 shadow-md'
+                      ? 'bg-slate-900 border-sky-500/50 text-slate-100 shadow-sm'
                       : 'bg-slate-950/60 border-slate-800 text-slate-300 hover:bg-slate-900/50'
                   }`}
                   onClick={() => {
@@ -106,7 +104,7 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                   }}
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <MessageSquare className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                    <MessageSquare className="w-4 h-4 text-sky-400 flex-shrink-0" />
                     <div className="min-w-0">
                       <p className="text-xs font-semibold truncate font-heading">
                         Chat {idx + 1}: {t.title || 'New Conversation'}
@@ -117,30 +115,31 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                     </div>
                   </div>
 
-                  {threads.length > 1 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
+                  {/* Explicit Delete Chat Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm('Delete this conversation?')) {
                         onDeleteThread(t.id);
-                      }}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-slate-800 transition-colors opacity-0 group-hover:opacity-100"
-                      title="Delete thread"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                      }
+                    }}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-800 transition-colors"
+                    title="Delete Conversation"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               );
             })
           )}
         </div>
 
-        {/* User Footer Profile */}
+        {/* Footer User Profile */}
         <div className="pt-4 border-t border-slate-800">
           {user && user.isLoggedIn ? (
             <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800">
               <div className="flex items-center gap-2 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-cyan-500 text-slate-950 font-bold flex items-center justify-center text-xs">
+                <div className="w-8 h-8 rounded-full bg-sky-500 text-slate-950 font-bold flex items-center justify-center text-xs">
                   {user.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="min-w-0">
@@ -163,9 +162,9 @@ export const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                 onOpenAuth();
                 onClose();
               }}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-900 border border-slate-700 hover:border-cyan-500/50 text-slate-200 text-xs font-semibold transition-all hover:bg-slate-800"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-slate-900 border border-slate-700 hover:border-sky-500/50 text-slate-200 text-xs font-semibold transition-all hover:bg-slate-800"
             >
-              <LogIn className="w-4 h-4 text-cyan-400" />
+              <LogIn className="w-4 h-4 text-sky-400" />
               <span>Login with Google</span>
             </button>
           )}
