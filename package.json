@@ -10,13 +10,18 @@
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.5",
+    "@react-three/drei": "^9.121.5",
+    "@react-three/fiber": "^8.17.14",
     "@types/canvas-confetti": "^1.9.0",
+    "@types/three": "^0.185.1",
     "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.26.0",
     "next": "14.2.15",
     "react": "^18",
-    "react-dom": "^18"
+    "react-dom": "^18",
+    "react-hook-form": "^7.83.0",
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@types/node": "^20",
