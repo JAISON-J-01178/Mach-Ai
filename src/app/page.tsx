@@ -4,7 +4,6 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Image from 'next/image';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider, useAuth } from '@/lib/authContext';
-import { Header } from '@/components/Header';
 import { Sidebar } from '@/components/Sidebar';
 import { MessageItem, Message } from '@/components/MessageItem';
 import { AuthModal } from '@/components/AuthModal';
@@ -21,23 +20,117 @@ import {
   renameThread,
   ChatThread
 } from '@/lib/memoryEngine';
-import { Send, Loader2, RefreshCw, Sparkles, Heart, Code, Globe, Terminal } from 'lucide-react';
+import {
+  Send,
+  Loader2,
+  RefreshCw,
+  Sparkles,
+  Heart,
+  Code,
+  Globe,
+  Terminal,
+  Menu,
+  LogIn,
+  LogOut,
+  Download,
+  Languages
+} from 'lucide-react';
 
+/* ──────────────────────────────────────────────
+   INLINE HEADER  (no separate Header.tsx needed)
+────────────────────────────────────────────── */
+interface AppHeaderProps {
+  language: string;
+  setLanguage: (l: string) => void;
+  onOpenAuth: () => void;
+  onToggleSidebar: () => void;
+  onOpenExport: () => void;
+}
+
+function AppHeader({ language, setLanguage, onOpenAuth, onToggleSidebar, onOpenExport }: AppHeaderProps) {
+  const { user, logout } = useAuth();
+
+  return (
+    <header className="h-14 flex-shrink-0 bg-[#09090b] border-b border-zinc-800 px-3 sm:px-6 flex items-center justify-between z-20 gap-3">
+      {/* Left: Hamburger + Logo */}
+      <div className="flex items-center gap-2.5 flex-shrink-0">
+        <button
+          onClick={onToggleSidebar}
+          className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-100 hover:bg-zinc-800 transition-all active:scale-95"
+        >
+          <Menu className="w-4 h-4" />
+        </button>
+        <div className="flex items-center gap-2">
+          <div className="relative w-7 h-7 rounded-xl overflow-hidden border border-zinc-800 flex-shrink-0">
+            <Image src="/logo.jpg" alt="Machi AI" fill className="object-cover" />
+          </div>
+          <span className="text-sm font-bold text-zinc-100 tracking-tight hidden sm:inline">Machi AI</span>
+        </div>
+      </div>
+
+      {/* Middle: Language Selector */}
+      <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-xl p-0.5 text-[11px] font-semibold overflow-hidden">
+        <Languages className="w-3 h-3 text-zinc-400 ml-1 mr-0.5 hidden sm:inline flex-shrink-0" />
+        {(['auto', 'en', 'tanglish', 'ta'] as const).map((lang) => (
+          <button
+            key={lang}
+            onClick={() => setLanguage(lang)}
+            className={`px-2 py-1 rounded-lg transition-all whitespace-nowrap ${
+              language === lang
+                ? 'bg-white text-zinc-950 font-bold shadow-sm'
+                : 'text-zinc-400 hover:text-zinc-100'
+            }`}
+          >
+            {lang === 'auto' ? 'Auto' : lang === 'en' ? 'English' : lang === 'tanglish' ? 'Tanglish' : 'தமிழ்'}
+          </button>
+        ))}
+      </div>
+
+      {/* Right: Export + Auth */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <button
+          onClick={onOpenExport}
+          className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:bg-zinc-800 transition-all active:scale-95"
+        >
+          <Download className="w-4 h-4" />
+        </button>
+
+        {user?.isLoggedIn ? (
+          <div className="flex items-center gap-1.5 bg-zinc-900 border border-zinc-800 rounded-xl px-2 py-1">
+            <div className="w-5 h-5 rounded-full bg-white text-zinc-950 font-bold flex items-center justify-center text-[10px]">
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+            <span className="text-xs font-semibold text-zinc-100 max-w-[72px] truncate hidden md:inline">{user.name}</span>
+            <button onClick={logout} className="text-zinc-500 hover:text-rose-400 transition-colors ml-0.5">
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={onOpenAuth}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-zinc-950 font-bold text-xs transition-all hover:bg-zinc-100 active:scale-95"
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Sign In</span>
+          </button>
+        )}
+      </div>
+    </header>
+  );
+}
+
+/* ──────────────────────────────────────────────
+   MAIN APP
+────────────────────────────────────────────── */
 function MachiApp() {
   const { user } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  
-  // Dual sidebar state: Mobile drawer vs Desktop collapse
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showDesktopSidebar, setShowDesktopSidebar] = useState(true);
-
   const [showExportModal, setShowExportModal] = useState(false);
-
-  // Thread modals state
   const [deletingThread, setDeletingThread] = useState<ChatThread | null>(null);
   const [renamingThread, setRenamingThread] = useState<ChatThread | null>(null);
-
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string>('');
   const [input, setInput] = useState('');
@@ -47,7 +140,7 @@ function MachiApp() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Cross-device Google User ID sync
+  /* Cross-device Google User ID sync */
   useEffect(() => {
     const saved = getSavedThreads(user?.email);
     if (saved.length > 0) {
@@ -67,35 +160,26 @@ function MachiApp() {
     }
   }, [user?.email]);
 
-  // Sync user memory
   useEffect(() => {
-    if (user && user.name) {
+    if (user?.name) {
       const mem = getUserMemory(user.name);
       mem.userName = user.name;
       saveUserMemory(mem);
     }
   }, [user]);
 
-  const activeThread = useMemo(
-    () => threads.find((t) => t.id === activeThreadId) || threads[0],
-    [threads, activeThreadId]
-  );
-  
-  const messages = useMemo(
-    () => (activeThread ? activeThread.messages : []),
-    [activeThread]
-  );
+  const activeThread = useMemo(() => threads.find((t) => t.id === activeThreadId) || threads[0], [threads, activeThreadId]);
+  const messages = useMemo(() => activeThread?.messages ?? [], [activeThread]);
 
-  // Auto-scroll inside chat container
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value);
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
+  const adjustTextarea = () => {
+    const el = textareaRef.current;
+    if (el) {
+      el.style.height = 'auto';
+      el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
     }
   };
 
@@ -108,42 +192,26 @@ function MachiApp() {
 
   const handleNewChat = () => {
     const newId = Date.now().toString();
-    const newThread: ChatThread = {
-      id: newId,
-      title: `New Chat`,
-      messages: [],
-      updatedAt: Date.now()
-    };
-
-    const updatedThreads = saveThreads([newThread, ...threads], user?.email);
-    setThreads(updatedThreads);
+    const newThread: ChatThread = { id: newId, title: 'New Chat', messages: [], updatedAt: Date.now() };
+    const updated = saveThreads([newThread, ...threads], user?.email);
+    setThreads(updated);
     setActiveThreadId(newId);
   };
 
   const handleConfirmDeleteThread = () => {
     if (!deletingThread) return;
-    const targetId = deletingThread.id;
-    const remaining = threads.filter((t) => t.id !== targetId);
-
+    const remaining = threads.filter((t) => t.id !== deletingThread.id);
     if (remaining.length === 0) {
       const newId = Date.now().toString();
-      const initialThread: ChatThread = {
-        id: newId,
-        title: 'New Conversation',
-        messages: [],
-        updatedAt: Date.now()
-      };
-      const updated = saveThreads([initialThread], user?.email);
+      const fresh: ChatThread = { id: newId, title: 'New Conversation', messages: [], updatedAt: Date.now() };
+      const updated = saveThreads([fresh], user?.email);
       setThreads(updated);
       setActiveThreadId(newId);
     } else {
       const updated = saveThreads(remaining, user?.email);
       setThreads(updated);
-      if (activeThreadId === targetId) {
-        setActiveThreadId(updated[0].id);
-      }
+      if (activeThreadId === deletingThread.id) setActiveThreadId(updated[0].id);
     }
-
     setDeletingThread(null);
   };
 
@@ -167,23 +235,13 @@ function MachiApp() {
 
     const updatedMessages = [...messages, userMsg];
 
-    // Advanced Auto-Naming with Fallback to 2nd message
     const updatedThreads = threads.map((t) => {
-      if (t.id === activeThreadId) {
-        const newTitle = generateSmartThreadTitle(updatedMessages, threads, activeThreadId);
-
-        return {
-          ...t,
-          messages: updatedMessages,
-          title: newTitle,
-          updatedAt: Date.now()
-        };
-      }
-      return t;
+      if (t.id !== activeThreadId) return t;
+      const newTitle = generateSmartThreadTitle(updatedMessages, threads, activeThreadId);
+      return { ...t, messages: updatedMessages, title: newTitle, updatedAt: Date.now() };
     });
 
-    const saved = saveThreads(updatedThreads, user?.email);
-    setThreads(saved);
+    setThreads(saveThreads(updatedThreads, user?.email));
 
     if (!customText) {
       setInput('');
@@ -196,7 +254,6 @@ function MachiApp() {
 
     try {
       const memory = getUserMemory(user?.name || '');
-
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -207,9 +264,7 @@ function MachiApp() {
           userName: memory.userName || user?.name || ''
         })
       });
-
       const data = await res.json();
-
       if (data.reply) {
         const botMsg: Message = {
           id: (Date.now() + 1).toString(),
@@ -217,35 +272,19 @@ function MachiApp() {
           content: data.reply,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
         };
-
-        const finalMessages = [...updatedMessages, botMsg];
-        const finalThreads = threads.map((t) => {
-          if (t.id === activeThreadId) {
-            return {
-              ...t,
-              messages: finalMessages,
-              updatedAt: Date.now()
-            };
-          }
-          return t;
-        });
-
+        const finalMsgs = [...updatedMessages, botMsg];
+        const finalThreads = threads.map((t) => t.id === activeThreadId ? { ...t, messages: finalMsgs, updatedAt: Date.now() } : t);
         setThreads(saveThreads(finalThreads, user?.email));
       }
     } catch {
-      const fallbackMsg: Message = {
+      const errMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: 'Machi AI connection slow ah iruku. Retry in 2 seconds! 🚀',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
-      const finalMessages = [...updatedMessages, fallbackMsg];
-      const finalThreads = threads.map((t) => {
-        if (t.id === activeThreadId) {
-          return { ...t, messages: finalMessages, updatedAt: Date.now() };
-        }
-        return t;
-      });
+      const finalMsgs = [...updatedMessages, errMsg];
+      const finalThreads = threads.map((t) => t.id === activeThreadId ? { ...t, messages: finalMsgs, updatedAt: Date.now() } : t);
       setThreads(saveThreads(finalThreads, user?.email));
     } finally {
       setIsLoading(false);
@@ -253,14 +292,14 @@ function MachiApp() {
   };
 
   const handleToggleSidebar = () => {
-    if (window.innerWidth < 1024) {
-      setShowMobileSidebar(!showMobileSidebar);
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setShowMobileSidebar((p) => !p);
     } else {
-      setShowDesktopSidebar(!showDesktopSidebar);
+      setShowDesktopSidebar((p) => !p);
     }
   };
 
-  const trilingualPrompts = [
+  const prompts = [
     { icon: Globe, lang: 'English', text: 'Help me draft a professional email response for a client meeting.' },
     { icon: Heart, lang: 'Tanglish', text: 'Machi, life la focus & motivation vara oru simple Tanglish advice thaa da!' },
     { icon: Terminal, lang: 'Pure Tamil', text: 'தமிழ் கலாச்சாரம் மற்றும் கணினி தொழில்நுட்பம் பற்றி விளக்குக.' },
@@ -268,40 +307,18 @@ function MachiApp() {
   ];
 
   return (
-    <div className="h-[100dvh] max-h-[100dvh] w-screen overflow-hidden flex flex-col justify-between bg-[#09090b] text-[#fafafa] font-sans selection:bg-[#ffffff] selection:text-[#09090b]">
-      {/* Quick 1.2s Branded Splash */}
+    /* ── FIXED ROOT CONTAINER ─────────────────── */
+    <div className="fixed inset-0 w-full h-[100dvh] bg-[#09090b] text-white flex flex-col overflow-hidden">
       {showSplash && <QuickSplash onFinish={() => setShowSplash(false)} />}
-
-      {/* Auth Modal */}
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      <DeleteConfirmModal isOpen={!!deletingThread} threadTitle={deletingThread?.title || ''} onConfirm={handleConfirmDeleteThread} onCancel={() => setDeletingThread(null)} />
+      <RenameModal isOpen={!!renamingThread} currentTitle={renamingThread?.title || ''} onSave={handleSaveRenameThread} onCancel={() => setRenamingThread(null)} />
+      <ExportVaultModal isOpen={showExportModal} onClose={() => setShowExportModal(false)} messages={messages} userName={user?.name || ''} />
 
-      {/* Delete Confirmation Modal */}
-      <DeleteConfirmModal
-        isOpen={!!deletingThread}
-        threadTitle={deletingThread?.title || ''}
-        onConfirm={handleConfirmDeleteThread}
-        onCancel={() => setDeletingThread(null)}
-      />
+      {/* ── BODY ROW (Sidebar + Main) ─── */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
 
-      {/* Rename Thread Modal */}
-      <RenameModal
-        isOpen={!!renamingThread}
-        currentTitle={renamingThread?.title || ''}
-        onSave={handleSaveRenameThread}
-        onCancel={() => setRenamingThread(null)}
-      />
-
-      {/* Export & Memory Vault Modal */}
-      <ExportVaultModal
-        isOpen={showExportModal}
-        onClose={() => setShowExportModal(false)}
-        messages={messages}
-        userName={user?.name || ''}
-      />
-
-      {/* Main Layout Shell */}
-      <div className="flex flex-1 h-full min-h-0 overflow-hidden relative">
-        {/* Sidebar Navigation */}
+        {/* ── SIDEBAR ─── */}
         <Sidebar
           isOpenMobile={showMobileSidebar}
           isDesktopOpen={showDesktopSidebar}
@@ -315,10 +332,11 @@ function MachiApp() {
           onOpenAuth={() => setShowAuthModal(true)}
         />
 
-        {/* Main Workspace */}
-        <div className="flex-1 flex flex-col h-full min-w-0 bg-[#09090b] relative overflow-hidden justify-between">
-          {/* Header Navigation (Pinned Top) */}
-          <Header
+        {/* ── MAIN COLUMN ─── */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+          {/* Fixed Header */}
+          <AppHeader
             language={language}
             setLanguage={setLanguage}
             onOpenAuth={() => setShowAuthModal(true)}
@@ -326,42 +344,33 @@ function MachiApp() {
             onOpenExport={() => setShowExportModal(true)}
           />
 
-          {/* Chat Feed Workspace (Scrolls inside center container) */}
-          <main className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 max-w-4xl mx-auto w-full min-h-0">
-            {/* Empty State */}
+          {/* Scrollable Messages Area */}
+          <main className="flex-1 overflow-y-auto min-h-0 px-4 py-6 space-y-4 max-w-3xl mx-auto w-full">
             {messages.length === 0 && (
-              <div className="my-auto py-12 flex flex-col items-center justify-center text-center">
-                <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-[#27272a] shadow-lg mb-4">
+              <div className="flex flex-col items-center justify-center text-center py-10 gap-5">
+                <div className="relative w-14 h-14 rounded-2xl overflow-hidden border border-zinc-800 shadow-lg">
                   <Image src="/logo.jpg" alt="Machi AI" fill className="object-cover" />
                 </div>
-
-                <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#fafafa] font-heading mb-1">
-                  How can Machi AI help you today?
-                </h2>
-                <p className="text-xs text-[#a1a1aa] max-w-md mb-8">
-                  {user?.name ? `Welcome back, ${user.name}. ` : ''}
-                  English • Tanglish • தமிழ் AI Assistant
-                </p>
-
-                {/* Trilingual Starter Chips */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl text-left">
-                  {trilingualPrompts.map((p, idx) => {
+                <div>
+                  <h2 className="text-2xl font-bold text-white mb-1">How can Machi AI help?</h2>
+                  <p className="text-xs text-zinc-400">
+                    {user?.name ? `Welcome back, ${user.name}. ` : ''}English • Tanglish • தமிழ்
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-xl text-left">
+                  {prompts.map((p, idx) => {
                     const Icon = p.icon;
                     return (
                       <button
                         key={idx}
                         onClick={() => handleSendMessage(p.text)}
-                        className="p-4 rounded-2xl bg-[#18181b] border border-[#27272a] hover:border-[#52525b] transition-all text-xs font-medium text-[#fafafa] group flex flex-col justify-between"
+                        className="p-4 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-zinc-600 transition-all text-xs font-medium text-zinc-100 group flex flex-col gap-2"
                       >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-[#fafafa] bg-[#27272a] px-2 py-0.5 rounded-md">
-                            {p.lang}
-                          </span>
-                          <Icon className="w-4 h-4 text-[#a1a1aa] group-hover:text-[#fafafa] transition-colors" />
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-300 bg-zinc-800 px-2 py-0.5 rounded-md">{p.lang}</span>
+                          <Icon className="w-4 h-4 text-zinc-500 group-hover:text-zinc-200 transition-colors" />
                         </div>
-                        <p className="line-clamp-2 leading-relaxed text-[#a1a1aa] group-hover:text-[#fafafa] transition-colors">
-                          {p.text}
-                        </p>
+                        <p className="line-clamp-2 leading-relaxed text-zinc-400 group-hover:text-zinc-200 transition-colors">{p.text}</p>
                       </button>
                     );
                   })}
@@ -369,84 +378,70 @@ function MachiApp() {
               </div>
             )}
 
-            {/* Active Messages Feed */}
-            {messages.length > 0 && (
-              <div className="flex flex-col gap-4 py-2">
-                {messages.map((msg) => (
-                  <MessageItem
-                    key={msg.id}
-                    message={msg}
-                    onRegenerate={() => {
-                      if (messages.length > 1) {
-                        const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
-                        if (lastUserMsg) handleSendMessage(lastUserMsg.content);
-                      }
-                    }}
-                  />
-                ))}
+            {messages.map((msg) => (
+              <MessageItem
+                key={msg.id}
+                message={msg}
+                onRegenerate={() => {
+                  const lastUser = [...messages].reverse().find((m) => m.role === 'user');
+                  if (lastUser) handleSendMessage(lastUser.content);
+                }}
+              />
+            ))}
 
-                {isLoading && (
-                  <div className="flex items-center gap-3 p-4 rounded-2xl bg-[#18181b] border border-[#27272a] max-w-[90%] animate-pulse">
-                    <div className="w-7 h-7 rounded-xl bg-[#27272a] flex items-center justify-center text-[#fafafa]">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    </div>
-                    <div className="text-xs text-[#fafafa] font-medium flex items-center gap-2">
-                      <span>Machi AI is generating response...</span>
-                      <Sparkles className="w-3.5 h-3.5 text-[#fafafa] animate-spin" />
-                    </div>
-                  </div>
-                )}
-                <div ref={chatEndRef} />
+            {isLoading && (
+              <div className="flex items-center gap-3 p-4 rounded-2xl bg-zinc-900 border border-zinc-800 max-w-[90%] animate-pulse">
+                <div className="w-7 h-7 rounded-xl bg-zinc-800 flex items-center justify-center">
+                  <Loader2 className="w-4 h-4 animate-spin text-zinc-300" />
+                </div>
+                <div className="text-xs text-zinc-300 font-medium flex items-center gap-2">
+                  <span>Machi AI is generating response...</span>
+                  <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                </div>
               </div>
             )}
+            <div ref={chatEndRef} />
           </main>
 
-          {/* Input Bar (Locked Bottom with Safe Area Padding & Zero Gap) */}
-          <div className="p-3 sm:p-4 bg-[#09090b] border-t border-[#27272a] flex-shrink-0 pb-safe m-0">
-            <div className="max-w-4xl mx-auto">
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleSendMessage();
-                }}
-                className="flex items-end gap-2 p-2 rounded-2xl bg-[#18181b] border border-[#27272a] transition-all focus-within:border-[#52525b]"
-              >
+          {/* ── FIXED BOTTOM INPUT BAR ─── */}
+          <div className="flex-shrink-0 w-full bg-[#09090b] border-t border-zinc-800 p-3 z-20"
+            style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
+            <div className="max-w-3xl mx-auto">
+              <div className="flex items-end gap-2 bg-zinc-900 border border-zinc-800 rounded-2xl px-4 py-2 focus-within:border-zinc-600 transition-colors">
                 <textarea
                   ref={textareaRef}
                   value={input}
-                  onChange={handleTextareaChange}
+                  onChange={(e) => { setInput(e.target.value); adjustTextarea(); }}
                   onKeyDown={handleKeyDown}
                   rows={1}
                   placeholder="Ask Machi AI..."
-                  className="w-full bg-transparent border-none outline-none text-sm text-[#fafafa] placeholder-[#71717a] py-1.5 px-2 font-sans resize-none max-h-40 min-h-[36px] leading-relaxed"
                   disabled={isLoading}
+                  className="w-full bg-transparent text-sm text-white placeholder-zinc-500 outline-none resize-none max-h-40 min-h-[24px] leading-relaxed py-1"
                 />
-
                 <button
-                  type="submit"
+                  onClick={() => handleSendMessage()}
                   disabled={!input.trim() || isLoading}
-                  className={`p-2.5 rounded-xl flex items-center justify-center transition-all flex-shrink-0 ${
+                  className={`p-2 rounded-xl flex-shrink-0 transition-all ${
                     input.trim() && !isLoading
-                      ? 'bg-[#ffffff] text-[#09090b] shadow-md hover:bg-[#e4e4e7] active:scale-95'
-                      : 'bg-[#27272a] text-[#71717a] cursor-not-allowed'
+                      ? 'text-white bg-white/10 hover:bg-white/20 active:scale-95'
+                      : 'text-zinc-600 cursor-not-allowed'
                   }`}
-                  title="Send Message"
                 >
-                  {isLoading ? (
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
+                  {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
-              </form>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+
+        </div>{/* end main column */}
+      </div>{/* end body row */}
     </div>
   );
 }
 
+/* ──────────────────────────────────────────────
+   ROOT EXPORT
+────────────────────────────────────────────── */
 export default function Home() {
   const googleClientId =
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
