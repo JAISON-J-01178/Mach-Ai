@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { upsertUser } from './supabaseDb';
 
+import { sendAuthAlert } from './notificationEngine';
+
 export interface UserProfile {
   name: string;
   email: string;
@@ -55,13 +57,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   /**
    * Shared login logic: upserts user into Supabase users table,
-   * stores supabaseUserId in session.
+   * stores supabaseUserId in session, and triggers Email + SMS alert notification.
    */
-  const handleLogin = async (name: string, email: string, avatar = '') => {
+  const handleLogin = async (
+    name: string,
+    email: string,
+    avatar = '',
+    loginMethod: 'Google' | 'Email' = 'Email'
+  ) => {
     // Optimistically set user in UI immediately
     const optimistic: UserProfile = { name, email, avatar, isLoggedIn: true };
     setUser(optimistic);
     localStorage.setItem(SESSION_KEY, JSON.stringify(optimistic));
+
+    // Send automated Email & SMS login/signup alert
+    sendAuthAlert(email, name, loginMethod);
 
     // Sync with Supabase and get UUID
     const id = await upsertUser(email, name);
@@ -78,12 +88,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     handleLogin(
       customName,
       customEmail,
-      'https://lh3.googleusercontent.com/a/default-user=s96-c'
+      'https://lh3.googleusercontent.com/a/default-user=s96-c',
+      'Google'
     );
   };
 
   const loginWithEmail = (name: string, email: string) => {
-    handleLogin(name || 'Machi User', email || 'user@machi.ai');
+    handleLogin(name || 'Machi User', email || 'user@machi.ai', '', 'Email');
   };
 
   const logout = () => {

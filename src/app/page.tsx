@@ -27,6 +27,7 @@ import {
   deleteThreadFromSupabase,
   upsertUser
 } from '@/lib/supabaseDb';
+import { send7DayInactivityAlert } from '@/lib/notificationEngine';
 import {
   Send,
   Loader2,
@@ -180,6 +181,15 @@ function MachiApp() {
           if (merged.length > 0) {
             setThreads(merged);
             setActiveThreadId(merged[0].id);
+
+            // ── Automated 7-Day Chat Inactivity Email Alert ──────────────────────
+            const sevenDaysMs = 7 * 86400 * 1000;
+            const now = Date.now();
+            const inactiveThread = merged.find((t) => t.messages.length > 0 && now - t.updatedAt >= sevenDaysMs);
+            if (inactiveThread && user.email) {
+              const daysOld = Math.floor((now - inactiveThread.updatedAt) / (86400 * 1000));
+              send7DayInactivityAlert(user.email, user.name, inactiveThread.title || 'Conversation', daysOld);
+            }
           } else {
             const newId = generateUUID();
             const fresh: ChatThread = {
