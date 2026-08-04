@@ -359,18 +359,17 @@ function MachiApp() {
       }
     }
 
+    // Compute updated messages array synchronously
+    const updatedMessages = [...messages, userMsg];
+
     setIsLoading(true);
 
-    // Capture exact user message array snapshot for API
-    let payloadMessages: Message[] = [];
-
+    // Update UI state immediately with user's message
     setThreads((prevThreads) => {
       const updated = prevThreads.map((t) => {
         if (t.id !== activeThreadId) return t;
-        const newMsgs = [...t.messages, userMsg];
-        payloadMessages = newMsgs;
-        const newTitle = generateSmartThreadTitle(newMsgs, prevThreads, activeThreadId);
-        return { ...t, messages: newMsgs, title: newTitle, updatedAt: Date.now() };
+        const newTitle = generateSmartThreadTitle(updatedMessages, prevThreads, activeThreadId);
+        return { ...t, messages: updatedMessages, title: newTitle, updatedAt: Date.now() };
       });
 
       if (user?.isLoggedIn && user?.email) {
@@ -391,7 +390,7 @@ function MachiApp() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: payloadMessages.map((m) => ({ role: m.role, content: m.content })),
+          messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
           persona: 'chill',
           language,
           userName: memory.userName || user?.name || ''
@@ -410,7 +409,9 @@ function MachiApp() {
       setThreads((prevThreads) => {
         const updated = prevThreads.map((t) => {
           if (t.id !== activeThreadId) return t;
-          const finalMsgs = [...t.messages, botMsg];
+          const currentTarget = prevThreads.find((pt) => pt.id === activeThreadId);
+          const baseMsgs = currentTarget ? currentTarget.messages : updatedMessages;
+          const finalMsgs = [...baseMsgs, botMsg];
           return { ...t, messages: finalMsgs, updatedAt: Date.now() };
         });
 
@@ -437,7 +438,9 @@ function MachiApp() {
       setThreads((prevThreads) => {
         const updated = prevThreads.map((t) => {
           if (t.id !== activeThreadId) return t;
-          const finalMsgs = [...t.messages, errMsg];
+          const currentTarget = prevThreads.find((pt) => pt.id === activeThreadId);
+          const baseMsgs = currentTarget ? currentTarget.messages : updatedMessages;
+          const finalMsgs = [...baseMsgs, errMsg];
           return { ...t, messages: finalMsgs, updatedAt: Date.now() };
         });
 
