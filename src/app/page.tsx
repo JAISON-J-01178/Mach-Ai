@@ -21,6 +21,12 @@ import {
   ChatThread
 } from '@/lib/memoryEngine';
 import {
+  getThreadsFromSupabase,
+  upsertThread,
+  upsertAllThreads,
+  deleteThreadFromSupabase
+} from '@/lib/supabaseDb';
+import {
   Send,
   Loader2,
   RefreshCw,
@@ -123,7 +129,7 @@ function AppHeader({ language, setLanguage, onOpenAuth, onToggleSidebar, onOpenE
    MAIN APP
 ────────────────────────────────────────────── */
 function MachiApp() {
-  const { user } = useAuth();
+  const { user, supabaseUserId } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -136,29 +142,75 @@ function MachiApp() {
   const [input, setInput] = useState('');
   const [language, setLanguage] = useState('auto');
   const [isLoading, setIsLoading] = useState(false);
+  const [threadsLoading, setThreadsLoading] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  /* Cross-device Google User ID sync */
+  /* ── Thread Hydration: Supabase (logged in) or localStorage (guest) ── */
   useEffect(() => {
-    const saved = getSavedThreads(user?.email);
-    if (saved.length > 0) {
-      setThreads(saved);
-      setActiveThreadId(saved[0].id);
-    } else {
-      const newId = Date.now().toString();
-      const initialThread: ChatThread = {
-        id: newId,
-        title: 'New Conversation',
-        messages: [],
-        updatedAt: Date.now()
-      };
-      const updated = saveThreads([initialThread], user?.email);
-      setThreads(updated);
-      setActiveThreadId(newId);
-    }
-  }, [user?.email]);
+    const loadThreads = async () => {
+      setThreadsLoading(true);
+
+      if (supabaseUserId) {
+        // ── LOGGED IN: fetch from Supabase ──────────────────────────────
+        const remoteThreads = await getThreadsFromSupabase(supabaseUserId);
+
+        // Migrate any local guest threads that haven't been synced yet
+        const localThreads = getSavedThreads(user?.email);
+        const localOnly = localThreads.filter(
+          (lt) => !remoteThreads.some((rt) => rt.id === lt.id)
+        );
+        if (localOnly.length > 0) {
+          await upsertAllThreads(supabaseUserId, localOnly);
+        }
+
+        const merged = [...remoteThreads, ...localOnly].sort(
+          (a, b) => b.updatedAt - a.updatedAt
+        );
+
+        if (merged.length > 0) {
+          setThreads(merged);
+          setActiveThreadId(merged[0].id);
+        } else {
+          const newId = crypto.randomUUID();
+          const fresh: ChatThread = {
+            id: newId,
+            title: 'New Conversation',
+            messages: [],
+            updatedAt: Date.now()
+          };
+          await upsertThread(supabaseUserId, fresh);
+          saveThreads([fresh], user?.email);
+          setThreads([fresh]);
+          setActiveThreadId(newId);
+        }
+      } else {
+        // ── GUEST: use localStorage only ────────────────────────────────
+        const saved = getSavedThreads(user?.email);
+        if (saved.length > 0) {
+          setThreads(saved);
+          setActiveThreadId(saved[0].id);
+        } else {
+          const newId = Date.now().toString();
+          const initialThread: ChatThread = {
+            id: newId,
+            title: 'New Conversation',
+            messages: [],
+            updatedAt: Date.now()
+          };
+          const updated = saveThreads([initialThread], user?.email);
+          setThreads(updated);
+          setActiveThreadId(newId);
+        }
+      }
+
+      setThreadsLoading(false);
+    };
+
+    loadThreads();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabaseUserId]);
 
   useEffect(() => {
     if (user?.name) {
@@ -190,20 +242,28 @@ function MachiApp() {
     }
   };
 
-  const handleNewChat = () => {
-    const newId = Date.now().toString();
+  const handleNewChat = async () => {
+    const newId = supabaseUserId ? crypto.randomUUID() : Date.now().toString();
     const newThread: ChatThread = { id: newId, title: 'New Chat', messages: [], updatedAt: Date.now() };
     const updated = saveThreads([newThread, ...threads], user?.email);
     setThreads(updated);
     setActiveThreadId(newId);
+    if (supabaseUserId) {
+      await upsertThread(supabaseUserId, newThread);
+    }
   };
 
-  const handleConfirmDeleteThread = () => {
+  const handleConfirmDeleteThread = async () => {
     if (!deletingThread) return;
+    // Delete from Supabase
+    if (supabaseUserId) {
+      await deleteThreadFromSupabase(deletingThread.id);
+    }
     const remaining = threads.filter((t) => t.id !== deletingThread.id);
     if (remaining.length === 0) {
-      const newId = Date.now().toString();
+      const newId = supabaseUserId ? crypto.randomUUID() : Date.now().toString();
       const fresh: ChatThread = { id: newId, title: 'New Conversation', messages: [], updatedAt: Date.now() };
+      if (supabaseUserId) await upsertThread(supabaseUserId, fresh);
       const updated = saveThreads([fresh], user?.email);
       setThreads(updated);
       setActiveThreadId(newId);
@@ -215,11 +275,16 @@ function MachiApp() {
     setDeletingThread(null);
   };
 
-  const handleSaveRenameThread = (newTitle: string) => {
+  const handleSaveRenameThread = async (newTitle: string) => {
     if (!renamingThread) return;
     const updated = renameThread(renamingThread.id, newTitle, threads, user?.email);
     setThreads(updated);
     setRenamingThread(null);
+    // Sync rename to Supabase
+    if (supabaseUserId) {
+      const renamedThread = updated.find((t) => t.id === renamingThread.id);
+      if (renamedThread) await upsertThread(supabaseUserId, renamedThread);
+    }
   };
 
   const handleSendMessage = async (customText?: string) => {
@@ -241,7 +306,13 @@ function MachiApp() {
       return { ...t, messages: updatedMessages, title: newTitle, updatedAt: Date.now() };
     });
 
-    setThreads(saveThreads(updatedThreads, user?.email));
+    const savedThreads = saveThreads(updatedThreads, user?.email);
+    setThreads(savedThreads);
+    // Optimistically sync active thread to Supabase
+    if (supabaseUserId) {
+      const activeUpdated = savedThreads.find((t) => t.id === activeThreadId);
+      if (activeUpdated) upsertThread(supabaseUserId, activeUpdated);
+    }
 
     if (!customText) {
       setInput('');
@@ -274,7 +345,13 @@ function MachiApp() {
         };
         const finalMsgs = [...updatedMessages, botMsg];
         const finalThreads = threads.map((t) => t.id === activeThreadId ? { ...t, messages: finalMsgs, updatedAt: Date.now() } : t);
-        setThreads(saveThreads(finalThreads, user?.email));
+        const savedFinal = saveThreads(finalThreads, user?.email);
+        setThreads(savedFinal);
+        // Sync completed thread (with bot reply) to Supabase
+        if (supabaseUserId) {
+          const completedThread = savedFinal.find((t) => t.id === activeThreadId);
+          if (completedThread) upsertThread(supabaseUserId, completedThread);
+        }
       }
     } catch {
       const errMsg: Message = {
@@ -285,7 +362,12 @@ function MachiApp() {
       };
       const finalMsgs = [...updatedMessages, errMsg];
       const finalThreads = threads.map((t) => t.id === activeThreadId ? { ...t, messages: finalMsgs, updatedAt: Date.now() } : t);
-      setThreads(saveThreads(finalThreads, user?.email));
+      const savedErr = saveThreads(finalThreads, user?.email);
+      setThreads(savedErr);
+      if (supabaseUserId) {
+        const errThread = savedErr.find((t) => t.id === activeThreadId);
+        if (errThread) upsertThread(supabaseUserId, errThread);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -346,6 +428,13 @@ function MachiApp() {
 
           {/* Scrollable Messages Area */}
           <main className="flex-1 overflow-y-auto min-h-0 px-4 py-6 space-y-4 max-w-3xl mx-auto w-full">
+            {/* Supabase sync loading indicator */}
+            {threadsLoading && (
+              <div className="flex items-center justify-center gap-2 py-4 text-xs text-zinc-500">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                <span>Syncing your conversations...</span>
+              </div>
+            )}
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center text-center py-10 gap-5">
                 <div className="relative w-14 h-14 rounded-2xl overflow-hidden border border-zinc-800 shadow-lg">

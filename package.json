@@ -12,6 +12,7 @@
     "@react-oauth/google": "^0.13.5",
     "@react-three/drei": "^9.121.5",
     "@react-three/fiber": "^8.17.14",
+    "@supabase/supabase-js": "^2.112.0",
     "@types/canvas-confetti": "^1.9.0",
     "@types/three": "^0.185.1",
     "canvas-confetti": "^1.9.4",

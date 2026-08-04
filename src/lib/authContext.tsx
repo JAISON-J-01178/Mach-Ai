@@ -1,16 +1,19 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { upsertUser } from './supabaseDb';
 
 export interface UserProfile {
   name: string;
   email: string;
   avatar: string;
   isLoggedIn: boolean;
+  supabaseUserId?: string; // Supabase UUID — used as FK for chat_threads
 }
 
 interface AuthContextType {
   user: UserProfile | null;
+  supabaseUserId: string | null;
   loginWithGoogle: (name?: string, email?: string) => void;
   loginWithEmail: (name: string, email: string) => void;
   logout: () => void;
@@ -18,49 +21,79 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const SESSION_KEY = 'machi_ai_user_session';
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [supabaseUserId, setSupabaseUserId] = useState<string | null>(null);
 
+  // Restore session from localStorage on mount
   useEffect(() => {
     try {
-      const savedUser = localStorage.getItem('machi_ai_user_session');
+      const savedUser = localStorage.getItem(SESSION_KEY);
       if (savedUser) {
-        setUser(JSON.parse(savedUser));
+        const parsed: UserProfile = JSON.parse(savedUser);
+        setUser(parsed);
+        if (parsed.supabaseUserId) {
+          setSupabaseUserId(parsed.supabaseUserId);
+        } else if (parsed.email) {
+          // Re-sync with Supabase if supabaseUserId was missing from old session
+          upsertUser(parsed.email, parsed.name).then((id) => {
+            if (id) {
+              setSupabaseUserId(id);
+              const updated = { ...parsed, supabaseUserId: id };
+              setUser(updated);
+              localStorage.setItem(SESSION_KEY, JSON.stringify(updated));
+            }
+          });
+        }
       }
     } catch {
-      // ignore
+      // ignore parse errors
     }
   }, []);
 
-  const loginWithGoogle = (customName = 'Machi User', customEmail = 'user@gmail.com') => {
-    const newUser: UserProfile = {
-      name: customName,
-      email: customEmail,
-      avatar: 'https://lh3.googleusercontent.com/a/default-user=s96-c',
-      isLoggedIn: true
-    };
-    setUser(newUser);
-    localStorage.setItem('machi_ai_user_session', JSON.stringify(newUser));
+  /**
+   * Shared login logic: upserts user into Supabase users table,
+   * stores supabaseUserId in session.
+   */
+  const handleLogin = async (name: string, email: string, avatar = '') => {
+    // Optimistically set user in UI immediately
+    const optimistic: UserProfile = { name, email, avatar, isLoggedIn: true };
+    setUser(optimistic);
+    localStorage.setItem(SESSION_KEY, JSON.stringify(optimistic));
+
+    // Sync with Supabase and get UUID
+    const id = await upsertUser(email, name);
+    const finalUser: UserProfile = { ...optimistic, supabaseUserId: id ?? undefined };
+    setUser(finalUser);
+    setSupabaseUserId(id);
+    localStorage.setItem(SESSION_KEY, JSON.stringify(finalUser));
+  };
+
+  const loginWithGoogle = (
+    customName = 'Machi User',
+    customEmail = 'user@gmail.com'
+  ) => {
+    handleLogin(
+      customName,
+      customEmail,
+      'https://lh3.googleusercontent.com/a/default-user=s96-c'
+    );
   };
 
   const loginWithEmail = (name: string, email: string) => {
-    const newUser: UserProfile = {
-      name: name || 'Machi User',
-      email: email || 'user@machi.ai',
-      avatar: '',
-      isLoggedIn: true
-    };
-    setUser(newUser);
-    localStorage.setItem('machi_ai_user_session', JSON.stringify(newUser));
+    handleLogin(name || 'Machi User', email || 'user@machi.ai');
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('machi_ai_user_session');
+    setSupabaseUserId(null);
+    localStorage.removeItem(SESSION_KEY);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loginWithGoogle, loginWithEmail, logout }}>
+    <AuthContext.Provider value={{ user, supabaseUserId, loginWithGoogle, loginWithEmail, logout }}>
       {children}
     </AuthContext.Provider>
   );
@@ -68,8 +101,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };
