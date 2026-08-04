@@ -8,12 +8,15 @@
     --font-noto-tamil: 'Noto Sans Tamil', system-ui, sans-serif;
   }
 
-  body {
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background-color: #09090b; /* Zinc 950 Obsidian */
+    color: #fafafa; /* Zinc 50 */
     font-family: var(--font-inter), var(--font-noto-tamil), system-ui, sans-serif;
-    background-color: #0f172a; /* Slate 900 */
-    color: #f8fafc; /* Slate 50 */
     line-height: 1.6;
-    overflow-x: hidden;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -22,27 +25,27 @@
   }
 }
 
-/* Minimalist Glass & Panel Styling */
+/* Glass & Panel Utilities - Executive Zinc Theme */
 .glass-panel {
-  background: rgba(15, 23, 42, 0.85); /* Slate 900 with backdrop opacity */
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(9, 9, 11, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-color: #27272a;
 }
 
 .glass-input {
-  background: #0f172a;
-  border: 1px solid #334155; /* Slate 700 */
+  background: #18181b;
+  border: 1px solid #27272a;
 }
 
 .glass-input:focus-within {
-  border-color: #38bdf8; /* Sky 400 */
-  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+  border-color: #52525b;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
 }
 
-/* Clean Gradient Accent */
+/* Gradient Text */
 .gradient-text-sky {
-  background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 50%, #38bdf8 100%);
+  background: linear-gradient(135deg, #ffffff 0%, #e4e4e7 60%, #a1a1aa 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -54,14 +57,14 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f172a;
+  background: #09090b;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: #27272a;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  background: #3f3f46;
 }

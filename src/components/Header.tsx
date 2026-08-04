@@ -23,102 +23,100 @@ export const Header: React.FC<HeaderProps> = ({
   const { user, logout } = useAuth();
 
   return (
-    <header className="sticky top-0 z-30 w-full glass-panel border-b border-slate-800 px-3 py-2.5 sm:px-6">
+    <header className="sticky top-0 z-30 w-full bg-[#09090b] border-b border-[#27272a] px-3 py-2.5 sm:px-6 flex-shrink-0">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
         {/* Left: Sidebar Toggle + Logo */}
         <div className="flex items-center gap-2.5">
           <button
             onClick={onToggleSidebar}
-            className="p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-600 transition-all active:scale-95"
-            title="Toggle Thread Sidebar"
+            className="p-2 rounded-xl bg-[#18181b] border border-[#27272a] text-[#fafafa] hover:bg-[#27272a] transition-all active:scale-95"
+            title="Toggle Sidebar"
           >
             <Menu className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
 
-          <div className="flex items-center gap-2">
-            <div className="relative w-8 h-8 rounded-xl overflow-hidden border border-slate-700">
+          <div className="flex items-center gap-2.5">
+            <div className="relative w-8 h-8 rounded-xl overflow-hidden border border-[#27272a]">
               <Image src="/logo.jpg" alt="Machi AI" fill className="object-cover" />
             </div>
             <div>
-              <h1 className="text-base sm:text-lg font-bold text-slate-100 font-heading leading-tight tracking-tight">
+              <h1 className="text-base sm:text-lg font-bold text-[#fafafa] font-heading leading-tight tracking-tight">
                 Machi AI
               </h1>
-              <p className="text-[10px] text-slate-400 font-medium hidden sm:block">
-                English • Tanglish • தமிழ் Assistant
+              <p className="text-[10px] text-[#a1a1aa] font-medium hidden sm:block">
+                Trilingual AI Assistant
               </p>
             </div>
           </div>
         </div>
 
-        {/* Right: Language Pills + Export + Auth */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Language Selector */}
-          <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl p-1 text-xs font-medium">
-            <Languages className="w-3.5 h-3.5 text-sky-400 ml-1 mr-1 hidden sm:inline" />
-            <button
-              onClick={() => setLanguage('auto')}
-              className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all ${
-                language === 'auto'
-                  ? 'bg-sky-600 text-white font-semibold shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Auto
-            </button>
-            <button
-              onClick={() => setLanguage('en')}
-              className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all ${
-                language === 'en'
-                  ? 'bg-sky-600 text-white font-semibold shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              English
-            </button>
-            <button
-              onClick={() => setLanguage('tanglish')}
-              className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all ${
-                language === 'tanglish'
-                  ? 'bg-sky-600 text-white font-semibold shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              Tanglish
-            </button>
-            <button
-              onClick={() => setLanguage('ta')}
-              className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all ${
-                language === 'ta'
-                  ? 'bg-sky-600 text-white font-semibold shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              தமிழ்
-            </button>
-          </div>
+        {/* Middle: Language Selector */}
+        <div className="flex items-center bg-[#18181b] border border-[#27272a] rounded-xl p-1 text-xs font-medium">
+          <Languages className="w-3.5 h-3.5 text-[#a1a1aa] ml-1 mr-1 hidden sm:inline" />
+          <button
+            onClick={() => setLanguage('auto')}
+            className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all ${
+              language === 'auto'
+                ? 'bg-[#ffffff] text-[#09090b] font-bold shadow-sm'
+                : 'text-[#a1a1aa] hover:text-[#fafafa]'
+            }`}
+          >
+            Auto
+          </button>
+          <button
+            onClick={() => setLanguage('en')}
+            className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all ${
+              language === 'en'
+                ? 'bg-[#ffffff] text-[#09090b] font-bold shadow-sm'
+                : 'text-[#a1a1aa] hover:text-[#fafafa]'
+            }`}
+          >
+            English
+          </button>
+          <button
+            onClick={() => setLanguage('tanglish')}
+            className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all ${
+              language === 'tanglish'
+                ? 'bg-[#ffffff] text-[#09090b] font-bold shadow-sm'
+                : 'text-[#a1a1aa] hover:text-[#fafafa]'
+            }`}
+          >
+            Tanglish
+          </button>
+          <button
+            onClick={() => setLanguage('ta')}
+            className={`px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg transition-all ${
+              language === 'ta'
+                ? 'bg-[#ffffff] text-[#09090b] font-bold shadow-sm'
+                : 'text-[#a1a1aa] hover:text-[#fafafa]'
+            }`}
+          >
+            தமிழ்
+          </button>
+        </div>
 
-          {/* Export Button */}
+        {/* Right: Export + Google Profile */}
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             onClick={onOpenExport}
-            className="p-2 rounded-xl bg-slate-800 border border-slate-700 text-slate-300 hover:text-sky-400 transition-all active:scale-95"
-            title="Export Chat & Memory Vault"
+            className="p-2 rounded-xl bg-[#18181b] border border-[#27272a] text-[#fafafa] hover:bg-[#27272a] transition-all active:scale-95"
+            title="Export Chat Transcript"
           >
             <Download className="w-4 h-4" />
           </button>
 
-          {/* User Profile / Auth */}
           {user && user.isLoggedIn ? (
-            <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
-              <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1">
-                <div className="w-5 h-5 rounded-full bg-sky-500 text-slate-950 font-bold flex items-center justify-center text-[10px]">
+            <div className="flex items-center gap-2 pl-2 border-l border-[#27272a]">
+              <div className="flex items-center gap-2 bg-[#18181b] border border-[#27272a] rounded-xl px-2.5 py-1">
+                <div className="w-5 h-5 rounded-full bg-[#fafafa] text-[#09090b] font-bold flex items-center justify-center text-[10px]">
                   {user.name.charAt(0).toUpperCase()}
                 </div>
-                <span className="text-xs font-semibold text-slate-200 max-w-[90px] truncate hidden md:inline">
+                <span className="text-xs font-semibold text-[#fafafa] max-w-[90px] truncate hidden md:inline">
                   {user.name}
                 </span>
                 <button
                   onClick={logout}
-                  className="text-slate-400 hover:text-rose-400 ml-1 transition-colors"
+                  className="text-[#a1a1aa] hover:text-rose-400 ml-1 transition-colors"
                   title="Log Out"
                 >
                   <LogOut className="w-3.5 h-3.5" />
@@ -128,9 +126,9 @@ export const Header: React.FC<HeaderProps> = ({
           ) : (
             <button
               onClick={onOpenAuth}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 border border-slate-700 hover:border-sky-500/50 text-slate-200 text-xs font-semibold transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#ffffff] text-[#09090b] font-semibold text-xs transition-all hover:bg-[#e4e4e7] active:scale-95"
             >
-              <LogIn className="w-3.5 h-3.5 text-sky-400" />
+              <LogIn className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Sign In</span>
             </button>
           )}
