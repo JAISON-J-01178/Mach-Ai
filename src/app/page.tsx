@@ -18,13 +18,15 @@ import {
   saveUserMemory,
   generateSmartThreadTitle,
   renameThread,
+  generateUUID,
   ChatThread
 } from '@/lib/memoryEngine';
 import {
   getThreadsFromSupabase,
   upsertThread,
   upsertAllThreads,
-  deleteThreadFromSupabase
+  deleteThreadFromSupabase,
+  upsertUser
 } from '@/lib/supabaseDb';
 import {
   Send,
@@ -147,62 +149,64 @@ function MachiApp() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  /* ── Thread Hydration: Supabase (logged in) or localStorage (guest) ── */
+  /* ── Thread Hydration: Supabase (logged in) or Fresh Temp Thread (guest) ── */
   useEffect(() => {
     const loadThreads = async () => {
       setThreadsLoading(true);
 
-      if (supabaseUserId) {
-        // ── LOGGED IN: fetch from Supabase ──────────────────────────────
-        const remoteThreads = await getThreadsFromSupabase(supabaseUserId);
-
-        // Migrate any local guest threads that haven't been synced yet
-        const localThreads = getSavedThreads(user?.email);
-        const localOnly = localThreads.filter(
-          (lt) => !remoteThreads.some((rt) => rt.id === lt.id)
-        );
-        if (localOnly.length > 0) {
-          await upsertAllThreads(supabaseUserId, localOnly);
+      if (user?.isLoggedIn && user?.email) {
+        // ── LOGGED IN: fetch from Supabase by email / user ID ──────────────────────
+        let currentSupabaseId = supabaseUserId;
+        if (!currentSupabaseId) {
+          currentSupabaseId = await upsertUser(user.email, user.name);
         }
 
-        const merged = [...remoteThreads, ...localOnly].sort(
-          (a, b) => b.updatedAt - a.updatedAt
-        );
+        if (currentSupabaseId) {
+          const remoteThreads = await getThreadsFromSupabase(currentSupabaseId);
 
-        if (merged.length > 0) {
-          setThreads(merged);
-          setActiveThreadId(merged[0].id);
-        } else {
-          const newId = crypto.randomUUID();
-          const fresh: ChatThread = {
-            id: newId,
-            title: 'New Conversation',
-            messages: [],
-            updatedAt: Date.now()
-          };
-          await upsertThread(supabaseUserId, fresh);
-          saveThreads([fresh], user?.email);
-          setThreads([fresh]);
-          setActiveThreadId(newId);
+          // Migrate any local threads for this user that haven't synced yet
+          const localThreads = getSavedThreads(user.email);
+          const localOnly = localThreads.filter(
+            (lt) => !remoteThreads.some((rt) => rt.id === lt.id)
+          );
+
+          if (localOnly.length > 0) {
+            await upsertAllThreads(currentSupabaseId, localOnly);
+          }
+
+          const merged = [...remoteThreads, ...localOnly].sort(
+            (a, b) => b.updatedAt - a.updatedAt
+          );
+
+          if (merged.length > 0) {
+            setThreads(merged);
+            setActiveThreadId(merged[0].id);
+          } else {
+            const newId = generateUUID();
+            const fresh: ChatThread = {
+              id: newId,
+              title: 'New Conversation',
+              messages: [],
+              updatedAt: Date.now()
+            };
+            await upsertThread(currentSupabaseId, fresh);
+            saveThreads([fresh], user.email);
+            setThreads([fresh]);
+            setActiveThreadId(newId);
+          }
         }
       } else {
-        // ── GUEST: use localStorage only ────────────────────────────────
-        const saved = getSavedThreads(user?.email);
-        if (saved.length > 0) {
-          setThreads(saved);
-          setActiveThreadId(saved[0].id);
-        } else {
-          const newId = Date.now().toString();
-          const initialThread: ChatThread = {
-            id: newId,
-            title: 'New Conversation',
-            messages: [],
-            updatedAt: Date.now()
-          };
-          const updated = saveThreads([initialThread], user?.email);
-          setThreads(updated);
-          setActiveThreadId(newId);
-        }
+        // ── GUEST SESSION ISOLATION: temporary in-memory thread only ─────────
+        // Never read from or write to Supabase / localStorage for unauthenticated users.
+        const guestId = generateUUID();
+        const freshGuest: ChatThread = {
+          id: guestId,
+          title: 'New Conversation',
+          messages: [],
+          updatedAt: Date.now()
+        };
+        setThreads([freshGuest]);
+        setActiveThreadId(guestId);
       }
 
       setThreadsLoading(false);
@@ -210,7 +214,7 @@ function MachiApp() {
 
     loadThreads();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [supabaseUserId]);
+  }, [supabaseUserId, user?.isLoggedIn, user?.email]);
 
   useEffect(() => {
     if (user?.name) {
@@ -220,7 +224,10 @@ function MachiApp() {
     }
   }, [user]);
 
-  const activeThread = useMemo(() => threads.find((t) => t.id === activeThreadId) || threads[0], [threads, activeThreadId]);
+  const activeThread = useMemo(
+    () => threads.find((t) => t.id === activeThreadId) || threads[0],
+    [threads, activeThreadId]
+  );
   const messages = useMemo(() => activeThread?.messages ?? [], [activeThread]);
 
   useEffect(() => {
@@ -243,48 +250,96 @@ function MachiApp() {
   };
 
   const handleNewChat = async () => {
-    const newId = supabaseUserId ? crypto.randomUUID() : Date.now().toString();
-    const newThread: ChatThread = { id: newId, title: 'New Chat', messages: [], updatedAt: Date.now() };
-    const updated = saveThreads([newThread, ...threads], user?.email);
-    setThreads(updated);
+    const newId = generateUUID();
+    const newThread: ChatThread = {
+      id: newId,
+      title: 'New Chat',
+      messages: [],
+      updatedAt: Date.now()
+    };
+
+    setThreads((prev) => {
+      const updated = [newThread, ...prev];
+      if (user?.isLoggedIn && user?.email) {
+        saveThreads(updated, user.email);
+      }
+      return updated;
+    });
     setActiveThreadId(newId);
-    if (supabaseUserId) {
+
+    if (user?.isLoggedIn && supabaseUserId) {
       await upsertThread(supabaseUserId, newThread);
     }
   };
 
   const handleConfirmDeleteThread = async () => {
     if (!deletingThread) return;
-    // Delete from Supabase
-    if (supabaseUserId) {
-      await deleteThreadFromSupabase(deletingThread.id);
+    const targetId = deletingThread.id;
+
+    // Hard Delete from Supabase Database
+    if (user?.isLoggedIn && supabaseUserId) {
+      await deleteThreadFromSupabase(targetId);
     }
-    const remaining = threads.filter((t) => t.id !== deletingThread.id);
-    if (remaining.length === 0) {
-      const newId = supabaseUserId ? crypto.randomUUID() : Date.now().toString();
-      const fresh: ChatThread = { id: newId, title: 'New Conversation', messages: [], updatedAt: Date.now() };
-      if (supabaseUserId) await upsertThread(supabaseUserId, fresh);
-      const updated = saveThreads([fresh], user?.email);
-      setThreads(updated);
-      setActiveThreadId(newId);
-    } else {
-      const updated = saveThreads(remaining, user?.email);
-      setThreads(updated);
-      if (activeThreadId === deletingThread.id) setActiveThreadId(updated[0].id);
-    }
+
+    setThreads((prev) => {
+      const remaining = prev.filter((t) => t.id !== targetId);
+      if (user?.isLoggedIn && user?.email) {
+        saveThreads(remaining, user.email);
+      }
+
+      if (remaining.length === 0) {
+        const newId = generateUUID();
+        const fresh: ChatThread = {
+          id: newId,
+          title: 'New Conversation',
+          messages: [],
+          updatedAt: Date.now()
+        };
+        if (user?.isLoggedIn && supabaseUserId) {
+          upsertThread(supabaseUserId, fresh);
+        }
+        if (user?.isLoggedIn && user?.email) {
+          saveThreads([fresh], user.email);
+        }
+        setActiveThreadId(newId);
+        return [fresh];
+      } else {
+        if (activeThreadId === targetId) {
+          setActiveThreadId(remaining[0].id);
+        }
+        return remaining;
+      }
+    });
+
     setDeletingThread(null);
   };
 
   const handleSaveRenameThread = async (newTitle: string) => {
     if (!renamingThread) return;
-    const updated = renameThread(renamingThread.id, newTitle, threads, user?.email);
-    setThreads(updated);
+    const targetId = renamingThread.id;
+    const cleanTitle = newTitle.trim() || 'New Conversation';
+
+    setThreads((prev) => {
+      const updated = prev.map((t) => {
+        if (t.id === targetId) {
+          return { ...t, title: cleanTitle, updatedAt: Date.now() };
+        }
+        return t;
+      });
+
+      if (user?.isLoggedIn && user?.email) {
+        saveThreads(updated, user.email);
+      }
+
+      if (user?.isLoggedIn && supabaseUserId) {
+        const renamed = updated.find((t) => t.id === targetId);
+        if (renamed) upsertThread(supabaseUserId, renamed);
+      }
+
+      return updated;
+    });
+
     setRenamingThread(null);
-    // Sync rename to Supabase
-    if (supabaseUserId) {
-      const renamedThread = updated.find((t) => t.id === renamingThread.id);
-      if (renamedThread) await upsertThread(supabaseUserId, renamedThread);
-    }
   };
 
   const handleSendMessage = async (customText?: string) => {
@@ -298,22 +353,6 @@ function MachiApp() {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
-    const updatedMessages = [...messages, userMsg];
-
-    const updatedThreads = threads.map((t) => {
-      if (t.id !== activeThreadId) return t;
-      const newTitle = generateSmartThreadTitle(updatedMessages, threads, activeThreadId);
-      return { ...t, messages: updatedMessages, title: newTitle, updatedAt: Date.now() };
-    });
-
-    const savedThreads = saveThreads(updatedThreads, user?.email);
-    setThreads(savedThreads);
-    // Optimistically sync active thread to Supabase
-    if (supabaseUserId) {
-      const activeUpdated = savedThreads.find((t) => t.id === activeThreadId);
-      if (activeUpdated) upsertThread(supabaseUserId, activeUpdated);
-    }
-
     if (!customText) {
       setInput('');
       if (textareaRef.current) {
@@ -323,36 +362,71 @@ function MachiApp() {
 
     setIsLoading(true);
 
+    // Capture exact user message array snapshot for API
+    let payloadMessages: Message[] = [];
+
+    setThreads((prevThreads) => {
+      const updated = prevThreads.map((t) => {
+        if (t.id !== activeThreadId) return t;
+        const newMsgs = [...t.messages, userMsg];
+        payloadMessages = newMsgs;
+        const newTitle = generateSmartThreadTitle(newMsgs, prevThreads, activeThreadId);
+        return { ...t, messages: newMsgs, title: newTitle, updatedAt: Date.now() };
+      });
+
+      if (user?.isLoggedIn && user?.email) {
+        saveThreads(updated, user.email);
+      }
+
+      if (user?.isLoggedIn && supabaseUserId) {
+        const activeUpdated = updated.find((t) => t.id === activeThreadId);
+        if (activeUpdated) upsertThread(supabaseUserId, activeUpdated);
+      }
+
+      return updated;
+    });
+
     try {
       const memory = getUserMemory(user?.name || '');
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
+          messages: payloadMessages.map((m) => ({ role: m.role, content: m.content })),
           persona: 'chill',
           language,
           userName: memory.userName || user?.name || ''
         })
       });
       const data = await res.json();
-      if (data.reply) {
-        const botMsg: Message = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: data.reply,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-        const finalMsgs = [...updatedMessages, botMsg];
-        const finalThreads = threads.map((t) => t.id === activeThreadId ? { ...t, messages: finalMsgs, updatedAt: Date.now() } : t);
-        const savedFinal = saveThreads(finalThreads, user?.email);
-        setThreads(savedFinal);
-        // Sync completed thread (with bot reply) to Supabase
-        if (supabaseUserId) {
-          const completedThread = savedFinal.find((t) => t.id === activeThreadId);
+
+      const botContent = data.reply || 'Machi AI connection slow ah iruku. Retry in 2 seconds! 🚀';
+      const botMsg: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: botContent,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      setThreads((prevThreads) => {
+        const updated = prevThreads.map((t) => {
+          if (t.id !== activeThreadId) return t;
+          const finalMsgs = [...t.messages, botMsg];
+          return { ...t, messages: finalMsgs, updatedAt: Date.now() };
+        });
+
+        if (user?.isLoggedIn && user?.email) {
+          saveThreads(updated, user.email);
+        }
+
+        if (user?.isLoggedIn && supabaseUserId) {
+          const completedThread = updated.find((t) => t.id === activeThreadId);
           if (completedThread) upsertThread(supabaseUserId, completedThread);
         }
-      }
+
+        return updated;
+      });
+
     } catch {
       const errMsg: Message = {
         id: (Date.now() + 1).toString(),
@@ -360,14 +434,25 @@ function MachiApp() {
         content: 'Machi AI connection slow ah iruku. Retry in 2 seconds! 🚀',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
-      const finalMsgs = [...updatedMessages, errMsg];
-      const finalThreads = threads.map((t) => t.id === activeThreadId ? { ...t, messages: finalMsgs, updatedAt: Date.now() } : t);
-      const savedErr = saveThreads(finalThreads, user?.email);
-      setThreads(savedErr);
-      if (supabaseUserId) {
-        const errThread = savedErr.find((t) => t.id === activeThreadId);
-        if (errThread) upsertThread(supabaseUserId, errThread);
-      }
+
+      setThreads((prevThreads) => {
+        const updated = prevThreads.map((t) => {
+          if (t.id !== activeThreadId) return t;
+          const finalMsgs = [...t.messages, errMsg];
+          return { ...t, messages: finalMsgs, updatedAt: Date.now() };
+        });
+
+        if (user?.isLoggedIn && user?.email) {
+          saveThreads(updated, user.email);
+        }
+
+        if (user?.isLoggedIn && supabaseUserId) {
+          const errThread = updated.find((t) => t.id === activeThreadId);
+          if (errThread) upsertThread(supabaseUserId, errThread);
+        }
+
+        return updated;
+      });
     } finally {
       setIsLoading(false);
     }

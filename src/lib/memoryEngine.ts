@@ -18,16 +18,28 @@ export interface UserMemory {
 const DEFAULT_THREADS_KEY = 'mach_ai_threads_guest';
 const MEMORY_KEY = 'mach_ai_user_memory';
 
+export function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 function getStorageKey(userId?: string) {
-  if (!userId) return DEFAULT_THREADS_KEY;
+  if (!userId) return null;
   return `mach_ai_threads_${userId}`;
 }
 
-// Get all saved threads (UNLIMITED)
+// Get all saved threads (Only for logged-in users with email/userId)
 export function getSavedThreads(userId?: string): ChatThread[] {
-  if (typeof window === 'undefined') return [];
+  if (typeof window === 'undefined' || !userId) return [];
   try {
     const key = getStorageKey(userId);
+    if (!key) return [];
     const raw = localStorage.getItem(key);
     if (!raw) return [];
     const threads: ChatThread[] = JSON.parse(raw);
@@ -37,12 +49,17 @@ export function getSavedThreads(userId?: string): ChatThread[] {
   }
 }
 
-// Save threads
+// Save threads (Only for logged-in users with email/userId)
 export function saveThreads(threads: ChatThread[], userId?: string): ChatThread[] {
   if (typeof window === 'undefined') return threads;
 
   const sorted = [...threads].sort((a, b) => b.updatedAt - a.updatedAt);
   const key = getStorageKey(userId);
+
+  // GUEST SESSION ISOLATION: Do not write to localStorage if user is not logged in
+  if (!key || !userId) {
+    return sorted;
+  }
 
   try {
     localStorage.setItem(key, JSON.stringify(sorted));
