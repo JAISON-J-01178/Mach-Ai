@@ -17,7 +17,6 @@ import {
   getUserMemory,
   saveUserMemory,
   generateSmartThreadTitle,
-  renameThread,
   generateUUID,
   ChatThread
 } from '@/lib/memoryEngine';

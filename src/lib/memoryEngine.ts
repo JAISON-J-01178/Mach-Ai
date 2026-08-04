@@ -15,7 +15,6 @@ export interface UserMemory {
   preferredLanguage: string;
 }
 
-const DEFAULT_THREADS_KEY = 'mach_ai_threads_guest';
 const MEMORY_KEY = 'mach_ai_user_memory';
 
 export function generateUUID(): string {
