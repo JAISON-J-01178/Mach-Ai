@@ -64,31 +64,58 @@ export function renameThread(threadId: string, newTitle: string, threads: ChatTh
   return saveThreads(updated, userId);
 }
 
-// Helper to extract 1-2 key words from text
+/**
+ * Extract 1-2 key words from a message for use as a thread title.
+ * Rules:
+ *   - 1-2 word message → return as-is (e.g. "hi", "hello machi")
+ *   - Long message → strip common stop-words, return first 2 significant words
+ *     with Title Case applied.
+ */
 function extractKeywords(text: string): string {
   const clean = text.trim();
   if (!clean) return 'New Chat';
 
   const words = clean.split(/\s+/);
+
+  // Short message: return exactly as typed (preserves "hi", "hello" lowercase)
   if (words.length <= 2) {
     return clean;
   }
 
-  const stopWords = new Set(['help', 'me', 'please', 'write', 'create', 'how', 'to', 'a', 'an', 'the', 'is', 'in', 'for', 'of', 'and', 'or', 'can', 'you']);
+  // Stop-word list for longer messages
+  const stopWords = new Set([
+    'help', 'me', 'please', 'write', 'create', 'how', 'to', 'a', 'an',
+    'the', 'is', 'in', 'for', 'of', 'and', 'or', 'can', 'you', 'do',
+    'i', 'my', 'your', 'want', 'need', 'make', 'get', 'give', 'tell',
+    'what', 'why', 'when', 'where', 'which', 'with', 'it', 'this', 'that'
+  ]);
+
   const filtered = words.filter((w) => !stopWords.has(w.toLowerCase()));
 
   if (filtered.length >= 2) {
     const result = `${filtered[0]} ${filtered[1]}`;
     return result.charAt(0).toUpperCase() + result.slice(1);
-  } else if (filtered.length === 1) {
+  }
+  if (filtered.length === 1) {
     return filtered[0].charAt(0).toUpperCase() + filtered[0].slice(1);
   }
 
+  // Absolute fallback: first two raw words with Title Case
   const fallback = `${words[0]} ${words[1]}`;
   return fallback.charAt(0).toUpperCase() + fallback.slice(1);
 }
 
-// Advanced Auto-Naming Algorithm with 2nd Message Fallback
+/**
+ * Auto-naming algorithm for chat threads.
+ *
+ * Priority order:
+ *  1. Keywords from 1st user message  →  use if NOT a duplicate
+ *  2. Keywords from 2nd user message  →  use if NOT a duplicate (fallback)
+ *  3. Numeric suffix (2), (3) …       →  last resort only
+ *
+ * A "duplicate" means another thread (excluding current) already has that
+ * exact title (case-insensitive).
+ */
 export function generateSmartThreadTitle(
   messages: Message[],
   existingThreads: ChatThread[],
@@ -97,43 +124,29 @@ export function generateSmartThreadTitle(
   const userMessages = messages.filter((m) => m.role === 'user');
   if (userMessages.length === 0) return 'New Conversation';
 
-  const firstMsg = userMessages[0].content;
-  const initialTitle = extractKeywords(firstMsg);
-
-  // Check if initialTitle conflicts with another thread
+  // Other threads we might conflict with
   const otherThreads = existingThreads.filter((t) => t.id !== currentThreadId);
-  const isDuplicate = otherThreads.some(
-    (t) => (t.title || '').toLowerCase() === initialTitle.toLowerCase()
-  );
 
-  // If initial title is NOT duplicate, return it!
-  if (!isDuplicate) {
-    return initialTitle;
-  }
+  const titleExists = (candidate: string) =>
+    otherThreads.some((t) => (t.title || '').toLowerCase() === candidate.toLowerCase());
 
-  // If initial title IS duplicate: Fallback to 2nd user message if available!
+  // ── Step 1: Try first user message ──────────────────────────────────────
+  const firstTitle = extractKeywords(userMessages[0].content);
+  if (!titleExists(firstTitle)) return firstTitle;
+
+  // ── Step 2: Fallback → second user message (if available) ───────────────
   if (userMessages.length >= 2) {
-    const secondMsg = userMessages[1].content;
-    const secondTitle = extractKeywords(secondMsg);
-
-    // If secondTitle is unique, return it!
-    const isSecondDuplicate = otherThreads.some(
-      (t) => (t.title || '').toLowerCase() === secondTitle.toLowerCase()
-    );
-
-    if (!isSecondDuplicate) {
-      return secondTitle;
-    }
+    const secondTitle = extractKeywords(userMessages[1].content);
+    if (!titleExists(secondTitle)) return secondTitle;
   }
 
-  // Final fallback if both 1st and 2nd messages match existing titles
+  // ── Step 3: Last resort — numeric suffix ────────────────────────────────
   let counter = 2;
-  let candidate = `${initialTitle} (${counter})`;
-  while (otherThreads.some((t) => (t.title || '').toLowerCase() === candidate.toLowerCase())) {
+  let candidate = `${firstTitle} (${counter})`;
+  while (titleExists(candidate)) {
     counter++;
-    candidate = `${initialTitle} (${counter})`;
+    candidate = `${firstTitle} (${counter})`;
   }
-
   return candidate;
 }
 
