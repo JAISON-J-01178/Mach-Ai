@@ -9,14 +9,20 @@ import { Sidebar } from '@/components/Sidebar';
 import { MessageItem, Message } from '@/components/MessageItem';
 import { AuthModal } from '@/components/AuthModal';
 import { ExportVaultModal } from '@/components/ExportVaultModal';
+import { QuickSplash } from '@/components/QuickSplash';
+import { DeleteConfirmModal } from '@/components/DeleteConfirmModal';
 import { getSavedThreads, saveThreads, getUserMemory, saveUserMemory, ChatThread } from '@/lib/memoryEngine';
-import { Send, Loader2, RefreshCw, Sparkles, Heart, Code, Globe, Terminal } from 'lucide-react';
+import { Send, Loader2, RefreshCw, Sparkles, Heart, Code, Globe, Terminal, Trash2, MessageSquare } from 'lucide-react';
 
 function MachiApp() {
   const { user } = useAuth();
+  const [showSplash, setShowSplash] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showSidebar, setShowSidebar] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+
+  // Thread deletion modal state
+  const [deletingThread, setDeletingThread] = useState<ChatThread | null>(null);
 
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string>('');
@@ -27,7 +33,7 @@ function MachiApp() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load threads on mount (UNLIMITED storage per User ID)
+  // Cross-device Google User ID sync (Fetches threads for user's Google Email/ID)
   useEffect(() => {
     const saved = getSavedThreads(user?.email);
     if (saved.length > 0) {
@@ -47,7 +53,7 @@ function MachiApp() {
     }
   }, [user?.email]);
 
-  // Sync user memory
+  // Sync memory
   useEffect(() => {
     if (user && user.name) {
       const mem = getUserMemory(user.name);
@@ -56,7 +62,6 @@ function MachiApp() {
     }
   }, [user]);
 
-  // Active thread memo
   const activeThread = useMemo(
     () => threads.find((t) => t.id === activeThreadId) || threads[0],
     [threads, activeThreadId]
@@ -72,7 +77,6 @@ function MachiApp() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
 
-  // Auto expand textarea height dynamically
   const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     if (textareaRef.current) {
@@ -81,7 +85,6 @@ function MachiApp() {
     }
   };
 
-  // Keyboard shortcut: Enter sends, Shift+Enter new line
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -103,8 +106,11 @@ function MachiApp() {
     setActiveThreadId(newId);
   };
 
-  const handleDeleteThread = (id: string) => {
-    const remaining = threads.filter((t) => t.id !== id);
+  const handleConfirmDeleteThread = () => {
+    if (!deletingThread) return;
+    const targetId = deletingThread.id;
+    const remaining = threads.filter((t) => t.id !== targetId);
+
     if (remaining.length === 0) {
       const newId = Date.now().toString();
       const initialThread: ChatThread = {
@@ -119,10 +125,12 @@ function MachiApp() {
     } else {
       const updated = saveThreads(remaining, user?.email);
       setThreads(updated);
-      if (activeThreadId === id) {
+      if (activeThreadId === targetId) {
         setActiveThreadId(updated[0].id);
       }
     }
+
+    setDeletingThread(null);
   };
 
   const handleSendMessage = async (customText?: string) => {
@@ -204,7 +212,7 @@ function MachiApp() {
       const fallbackMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: 'Machi! Connection chota slow ah iruku. Retry in 2 seconds! 🚀',
+        content: 'Machi AI connection slow ah iruku. Retry in 2 seconds! 🚀',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       };
       const finalMessages = [...updatedMessages, fallbackMsg];
@@ -229,8 +237,19 @@ function MachiApp() {
 
   return (
     <div className="flex h-screen bg-slate-900 text-slate-100 font-sans selection:bg-sky-500 selection:text-slate-950 overflow-hidden">
+      {/* Quick 1.2s Branded Splash */}
+      {showSplash && <QuickSplash onFinish={() => setShowSplash(false)} />}
+
       {/* Auth Modal */}
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmModal
+        isOpen={!!deletingThread}
+        threadTitle={deletingThread?.title || ''}
+        onConfirm={handleConfirmDeleteThread}
+        onCancel={() => setDeletingThread(null)}
+      />
 
       {/* Export & Memory Vault Modal */}
       <ExportVaultModal
@@ -248,7 +267,7 @@ function MachiApp() {
         activeThreadId={activeThreadId}
         onSelectThread={(id) => setActiveThreadId(id)}
         onNewChat={handleNewChat}
-        onDeleteThread={handleDeleteThread}
+        onRequestDeleteThread={(t) => setDeletingThread(t)}
         onOpenAuth={() => setShowAuthModal(true)}
       />
 
@@ -265,19 +284,54 @@ function MachiApp() {
 
         {/* Chat Feed Workspace */}
         <main className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 max-w-4xl mx-auto w-full">
-          {/* Empty State with Trilingual Prompt Starter Chips */}
+          {/* Active Threads Bar & Delete Header Action */}
+          <div className="flex items-center justify-between gap-2 mb-3 bg-slate-950/80 border border-slate-800 rounded-2xl px-3 py-2">
+            <div className="flex items-center gap-2 overflow-x-auto min-w-0">
+              <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
+                <MessageSquare className="w-3.5 h-3.5 text-sky-400" />
+                <span className="hidden sm:inline">Active Thread:</span>
+              </span>
+              {threads.map((t, idx) => (
+                <button
+                  key={t.id}
+                  onClick={() => setActiveThreadId(t.id)}
+                  className={`px-3 py-1 rounded-xl text-xs font-semibold transition-all border whitespace-nowrap ${
+                    t.id === activeThreadId
+                      ? 'bg-sky-600 text-white border-sky-400 shadow-sm'
+                      : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  Chat {idx + 1}
+                </button>
+              ))}
+            </div>
+
+            {/* Delete Active Thread */}
+            {activeThread && (
+              <button
+                onClick={() => setDeletingThread(activeThread)}
+                className="flex items-center gap-1 text-[11px] font-semibold text-slate-400 hover:text-rose-400 p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
+                title="Delete Current Chat"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Delete</span>
+              </button>
+            )}
+          </div>
+
+          {/* Empty State */}
           {messages.length === 0 && (
             <div className="my-auto py-10 flex flex-col items-center justify-center text-center">
               <div className="relative w-16 h-16 rounded-2xl overflow-hidden border border-slate-700 shadow-lg mb-4">
-                <Image src="/logo.jpg" alt="Mach-AI" fill className="object-cover" />
+                <Image src="/logo.jpg" alt="Machi AI" fill className="object-cover" />
               </div>
 
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-100 font-heading mb-1">
-                How can Mach-AI help you today?
+                How can Machi AI help you today?
               </h2>
               <p className="text-xs text-slate-400 max-w-md mb-8">
                 {user?.name ? `Welcome back, ${user.name}. ` : ''}
-                Supports English, Tanglish, and Tamil conversations smoothly.
+                English • Tanglish • தமிழ் AI Assistant
               </p>
 
               {/* Trilingual Starter Chips */}
@@ -326,7 +380,7 @@ function MachiApp() {
                     <Loader2 className="w-4 h-4 animate-spin" />
                   </div>
                   <div className="text-xs text-sky-300 font-medium flex items-center gap-2">
-                    <span>Mach-AI is generating response...</span>
+                    <span>Machi AI is generating response...</span>
                     <Sparkles className="w-3.5 h-3.5 text-sky-400 animate-spin" />
                   </div>
                 </div>
@@ -336,7 +390,7 @@ function MachiApp() {
           )}
         </main>
 
-        {/* Input Bar with Auto-Expanding Textarea */}
+        {/* Input Bar */}
         <div className="p-3 sm:p-4 bg-slate-900 border-t border-slate-800">
           <div className="max-w-4xl mx-auto">
             <form
@@ -352,7 +406,7 @@ function MachiApp() {
                 onChange={handleTextareaChange}
                 onKeyDown={handleKeyDown}
                 rows={1}
-                placeholder="Ask Mach-AI (Tamil, Tanglish or English)... Press Enter to send, Shift+Enter for new line"
+                placeholder="Ask Machi AI (Tamil, Tanglish or English)... Press Enter to send, Shift+Enter for new line"
                 className="w-full bg-transparent border-none outline-none text-sm text-slate-100 placeholder-slate-500 py-1.5 px-2 font-sans resize-none max-h-40 min-h-[36px] leading-relaxed"
                 disabled={isLoading}
               />

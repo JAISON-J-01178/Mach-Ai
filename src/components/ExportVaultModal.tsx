@@ -23,15 +23,14 @@ export const ExportVaultModal: React.FC<ExportVaultModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Format messages into clean markdown string
   const generateMarkdown = () => {
-    let md = `# MACHI Ai Chat Transcript\n`;
+    let md = `# Machi AI Chat Transcript\n`;
     md += `*Exported on: ${new Date().toLocaleString()}*\n`;
-    md += `*User: ${userName || 'Machi User'}*\n\n`;
+    md += `*User: ${userName || 'Mach User'}*\n\n`;
     md += `---\n\n`;
 
     messages.forEach((m) => {
-      const sender = m.role === 'user' ? `**User (${userName || 'You'})**` : `**MACHI Ai**`;
+      const sender = m.role === 'user' ? `**User (${userName || 'You'})**` : `**Machi AI**`;
       md += `${sender} - *${m.timestamp}*\n${m.content}\n\n---\n\n`;
     });
 
@@ -142,7 +141,7 @@ export const ExportVaultModal: React.FC<ExportVaultModalProps> = ({
           </div>
 
           <p className="text-slate-400 text-[11px] leading-relaxed">
-            MACHI Ai remembers your name (<strong className="text-slate-200">{memory.userName || userName || 'Machi User'}</strong>) and automatically prunes old chat history to keep your interface clean while retaining user identity.
+            Machi AI remembers your name (<strong className="text-slate-200">{memory.userName || userName || 'Mach User'}</strong>) and automatically syncs your conversation history across your logged-in devices.
           </p>
         </div>
       </div>

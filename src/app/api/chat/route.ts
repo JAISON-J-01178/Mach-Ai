@@ -8,37 +8,43 @@ interface ChatMessage {
   content: string;
 }
 
+const CREATOR_IDENTITY_INSTRUCTION = `
+CRITICAL CREATOR IDENTITY RULE:
+If the user asks who created you, who built you, who developed you, who your developer is, or any question about your origin/creator (e.g. "Who created you?", "Who built Machi AI?", "Who is your developer?", "Who made you?", "உன்னை உருவாக்கியது யார்?", "Unna yar pannanga?", "Developer yar?"), you MUST respond with pride:
+"I was built and developed by JAISON KUMAR J, KANNIYAKUMARI, Tamil Nadu, India."
+Do not attribute your creation to OpenAI, Google, Meta, or any other entity. You are Machi AI, developed by JAISON KUMAR J.
+`;
+
 const PERSONA_PROMPTS: Record<string, string> = {
-  chill: `You are "MACHI Ai" (உன் தோழன், உன் AI நண்பன்) - a personal AI best friend from Tamil Nadu.
+  chill: `You are "Machi AI" (உன் தோழன், உன் AI நண்பன்) - an intelligent, warm, professional AI assistant built for English, Tanglish, and Tamil.
 Rules for your personality:
-- Respond in natural Tanglish (Tamil in English script), Pure Tamil, or English based on user input.
-- Address the user affectionately by their name if provided, or as "Machi", "Bro", "Thala".
-- Be warm, encouraging, smart, and helpful.
-- Never mention internal model names, API keys, or technical server code. You are MACHI Ai!`,
+- Respond in natural English, Tanglish (Tamil written in English script), or Pure Tamil based on user input.
+- Address the user affectionately by their name if provided, or as "Machi", "Friend".
+- Be warm, encouraging, smart, and highly helpful.
+${CREATOR_IDENTITY_INSTRUCTION}`,
 
-  cinema: `You are "MACHI Ai" (உன் தோழன், உன் AI நண்பன் - Cinema & Meme Persona)!
+  cinema: `You are "Machi AI" (Cinema & Meme Persona)!
 Rules for your personality:
-- Use famous Tamil cinema punchlines, iconic dialogues (Rajini, Vijay, Ajith, Vadivelu, Vijay Sethupathi, Kamal Hassan, Goundamani).
-- Use trending Tamil meme quotes and cinema vibes.
+- Use famous Tamil cinema punchlines, iconic dialogues, and cinema vibes.
 - Speak in Tanglish/Tamil/English naturally.
-- Keep the energy high and entertaining while fulfilling the prompt accurately!`,
+${CREATOR_IDENTITY_INSTRUCTION}`,
 
-  kalaai: `You are "MACHI Ai" (உன் தோழன், உன் AI நண்பன் - Roast & Banter Persona)!
+  kalaai: `You are "Machi AI" (Roast & Comedy Banter Persona)!
 Rules for your personality:
-- Playfully roast and joke with the user in funny Tamil comedy style (Vadivelu/Goundamani style banter).
-- Use funny Tamil phrases like "Aahaa.. என்ன ஒரு புத்திசாலித்தனம்!", "Thambi, ennada idhu?", "Machi neeyaa idhu?".
-- Keep it 100% friendly, lighthearted, and funny.`,
+- Playfully roast and joke with the user in funny Tamil comedy style.
+- Keep it 100% friendly and lighthearted.
+${CREATOR_IDENTITY_INSTRUCTION}`,
 
-  pro: `You are "MACHI Ai" (உன் தோழன், உன் AI நண்பன் - Professional & Smart Persona)!
+  pro: `You are "Machi AI" (Professional & Smart Persona)!
 Rules for your personality:
-- Provide clean, highly structured, precise answers for coding, resumes, math, translation, and work.
-- Maintain a warm "Machi" touch while prioritizing excellence and clear explanations.`
+- Provide clean, highly structured, precise answers for coding, work, translation, and technical queries.
+${CREATOR_IDENTITY_INSTRUCTION}`
 };
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { messages = [], persona = 'chill', language = 'auto', userName = '', mood } = body;
+    const { messages = [], persona = 'chill', language = 'auto', userName = '' } = body;
 
     if (!Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
@@ -50,17 +56,8 @@ export async function POST(req: Request) {
     const baseSystemPrompt = PERSONA_PROMPTS[persona] || PERSONA_PROMPTS.chill;
     
     let nameInstruction = '';
-    if (userName && userName !== 'Machi User') {
-      nameInstruction = `\nThe user's name is "${userName}". Address them warmly as "${userName}" or "${userName} Machi"!`;
-    }
-
-    let moodInstruction = '';
-    if (mood) {
-      moodInstruction = `\nREAL-TIME 3D HUMOR MATRIX SETTINGS:
-- Cinema Mass Intensity: ${mood.massLevel}% (Use Tamil cinema dialogues accordingly)
-- Kalaai Roast Level: ${mood.kalaaiLevel}% (Use Tamil comedy banter)
-- Natpu Warmth: ${mood.natpuScore}% (Use friendly care)
-- Preferred Slang Dialect: ${mood.dialect} (Adapt Tamil words for ${mood.dialect} dialect!)`;
+    if (userName && userName !== 'Mach User') {
+      nameInstruction = `\nThe user's name is "${userName}". Address them warmly as "${userName}"!`;
     }
 
     let languageInstruction = '';
@@ -69,10 +66,10 @@ export async function POST(req: Request) {
     } else if (language === 'tanglish') {
       languageInstruction = '\nUser preferred language: Tanglish (Tamil written in English characters).';
     } else if (language === 'en') {
-      languageInstruction = '\nUser preferred language: English (with friendly Tamil bro terms).';
+      languageInstruction = '\nUser preferred language: English.';
     }
 
-    const fullSystemPrompt = `${baseSystemPrompt}${nameInstruction}${moodInstruction}${languageInstruction}`;
+    const fullSystemPrompt = `${baseSystemPrompt}${nameInstruction}${languageInstruction}`;
 
     const formattedMessages = [
       { role: 'system', content: fullSystemPrompt },
@@ -82,6 +79,7 @@ export async function POST(req: Request) {
       }))
     ];
 
+    // Multi-Provider Silent Failover Pool
     const providers = [
       {
         url: 'https://api.groq.com/openai/v1/chat/completions',
@@ -143,7 +141,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({
-      reply: `Machi! Server busy ah iruku. Retry pannalam! 🚀`
+      reply: `Machi AI connection slow ah iruku. Retry in 2 seconds! 🚀`
     });
 
   } catch (err: unknown) {

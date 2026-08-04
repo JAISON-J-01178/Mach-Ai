@@ -24,7 +24,7 @@ interface SidebarProps {
   activeThreadId: string;
   onSelectThread: (id: string) => void;
   onNewChat: () => void;
-  onDeleteThread: (id: string) => void;
+  onRequestDeleteThread: (thread: ChatThread) => void;
   onOpenAuth: () => void;
 }
 
@@ -35,13 +35,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeThreadId,
   onSelectThread,
   onNewChat,
-  onDeleteThread,
+  onRequestDeleteThread,
   onOpenAuth
 }) => {
   const { user, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Filter threads by search query
   const filteredThreads = threads.filter((t) =>
     (t.title || 'New Conversation').toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -80,9 +79,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onDeleteThread(t.id);
+                  onRequestDeleteThread(t);
                 }}
-                className="p-1 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-slate-700/60 transition-colors opacity-0 group-hover:opacity-100"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-slate-700/60 transition-colors opacity-80 sm:opacity-0 group-hover:opacity-100"
                 title="Delete thread"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -96,7 +95,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      {/* Mobile Backdrop */}
+      {/* Mobile Drawer Overlay */}
       {isOpen && (
         <div
           onClick={onClose}
@@ -104,21 +103,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* Sidebar Panel */}
+      {/* Sidebar Drawer */}
       <aside
         className={`fixed lg:static inset-y-0 left-0 z-40 w-72 bg-slate-900 border-r border-slate-800/80 flex flex-col justify-between p-4 transition-transform duration-300 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* Top Header */}
+        {/* Header */}
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="relative w-8 h-8 rounded-xl overflow-hidden border border-slate-700">
-                <Image src="/logo.jpg" alt="Mach-AI" fill className="object-cover" />
+                <Image src="/logo.jpg" alt="Machi AI" fill className="object-cover" />
               </div>
               <h2 className="text-base font-bold text-slate-100 font-heading tracking-tight">
-                Mach-AI
+                Machi AI
               </h2>
             </div>
             <button
@@ -129,7 +128,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
 
-          {/* + New Chat Button */}
+          {/* + New Chat */}
           <button
             onClick={() => {
               onNewChat();
@@ -141,7 +140,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span>New Chat</span>
           </button>
 
-          {/* Search Threads Input */}
+          {/* Search History */}
           <div className="relative">
             <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-500" />
             <input
@@ -169,7 +168,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* User Footer Profile */}
+        {/* Footer User Profile */}
         <div className="pt-3 border-t border-slate-800">
           {user && user.isLoggedIn ? (
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-950/80 border border-slate-800">

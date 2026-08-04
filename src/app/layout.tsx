@@ -15,7 +15,7 @@ const notoTamil = Noto_Sans_Tamil({
 });
 
 export const metadata: Metadata = {
-  title: 'Mach-AI | Trilingual AI Assistant',
+  title: 'Machi AI | Trilingual AI Assistant',
   description: 'Ultra-fast, professional AI assistant for English, Tanglish, and Tamil.',
   icons: {
     icon: '/favicon.ico'

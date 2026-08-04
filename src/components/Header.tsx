@@ -37,11 +37,11 @@ export const Header: React.FC<HeaderProps> = ({
 
           <div className="flex items-center gap-2">
             <div className="relative w-8 h-8 rounded-xl overflow-hidden border border-slate-700">
-              <Image src="/logo.jpg" alt="Mach-AI" fill className="object-cover" />
+              <Image src="/logo.jpg" alt="Machi AI" fill className="object-cover" />
             </div>
             <div>
               <h1 className="text-base sm:text-lg font-bold text-slate-100 font-heading leading-tight tracking-tight">
-                Mach-AI
+                Machi AI
               </h1>
               <p className="text-[10px] text-slate-400 font-medium hidden sm:block">
                 English • Tanglish • தமிழ் Assistant

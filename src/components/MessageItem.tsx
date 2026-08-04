@@ -91,7 +91,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, onRegenerate 
           </div>
         ) : (
           <div className="relative w-8 h-8 rounded-xl overflow-hidden border border-slate-700 shadow-md">
-            <Image src="/logo.jpg" alt="Mach-AI" fill className="object-cover" />
+            <Image src="/logo.jpg" alt="Machi AI" fill className="object-cover" />
           </div>
         )}
       </div>
@@ -100,7 +100,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, onRegenerate 
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2 mb-1">
           <span className="text-xs font-bold text-slate-200 font-heading">
-            {isUser ? 'You' : 'Mach-AI'}
+            {isUser ? 'You' : 'Machi AI'}
           </span>
           <span className="text-[10px] text-slate-500">{message.timestamp}</span>
         </div>
