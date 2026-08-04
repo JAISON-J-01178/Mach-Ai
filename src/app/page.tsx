@@ -44,39 +44,8 @@ function MachiApp() {
   const [language, setLanguage] = useState('auto');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Dynamic visualViewport height for mobile keyboard lock
-  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
-
   const chatEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Listen to VisualViewport changes for mobile virtual keyboard locking
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const updateHeight = () => {
-      if (window.visualViewport) {
-        setViewportHeight(window.visualViewport.height);
-      } else {
-        setViewportHeight(window.innerHeight);
-      }
-    };
-
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', updateHeight);
-      window.visualViewport.addEventListener('scroll', updateHeight);
-    }
-    window.addEventListener('resize', updateHeight);
-    updateHeight();
-
-    return () => {
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', updateHeight);
-        window.visualViewport.removeEventListener('scroll', updateHeight);
-      }
-      window.removeEventListener('resize', updateHeight);
-    };
-  }, []);
 
   // Cross-device Google User ID sync
   useEffect(() => {
@@ -198,13 +167,10 @@ function MachiApp() {
 
     const updatedMessages = [...messages, userMsg];
 
-    // Smart Auto-Naming on first message
+    // Advanced Auto-Naming with Fallback to 2nd message
     const updatedThreads = threads.map((t) => {
       if (t.id === activeThreadId) {
-        const isFirstMsg = t.messages.length === 0;
-        const newTitle = isFirstMsg
-          ? generateSmartThreadTitle(textToSend, threads)
-          : t.title;
+        const newTitle = generateSmartThreadTitle(updatedMessages, threads, activeThreadId);
 
         return {
           ...t,
@@ -302,10 +268,7 @@ function MachiApp() {
   ];
 
   return (
-    <div
-      style={{ height: viewportHeight ? `${viewportHeight}px` : '100dvh' }}
-      className="w-screen overflow-hidden flex flex-col bg-[#09090b] text-[#fafafa] font-sans selection:bg-[#ffffff] selection:text-[#09090b]"
-    >
+    <div className="h-[100dvh] max-h-[100dvh] w-screen overflow-hidden flex flex-col justify-between bg-[#09090b] text-[#fafafa] font-sans selection:bg-[#ffffff] selection:text-[#09090b]">
       {/* Quick 1.2s Branded Splash */}
       {showSplash && <QuickSplash onFinish={() => setShowSplash(false)} />}
 
@@ -353,7 +316,7 @@ function MachiApp() {
         />
 
         {/* Main Workspace */}
-        <div className="flex-1 flex flex-col h-full min-w-0 bg-[#09090b] relative overflow-hidden">
+        <div className="flex-1 flex flex-col h-full min-w-0 bg-[#09090b] relative overflow-hidden justify-between">
           {/* Header Navigation (Pinned Top) */}
           <Header
             language={language}
@@ -438,8 +401,8 @@ function MachiApp() {
             )}
           </main>
 
-          {/* Input Bar (Locked Bottom above Virtual Keyboard) */}
-          <div className="p-3 sm:p-4 bg-[#09090b] border-t border-[#27272a] flex-shrink-0">
+          {/* Input Bar (Locked Bottom with Safe Area Padding & Zero Gap) */}
+          <div className="p-3 sm:p-4 bg-[#09090b] border-t border-[#27272a] flex-shrink-0 pb-safe m-0">
             <div className="max-w-4xl mx-auto">
               <form
                 onSubmit={(e) => {

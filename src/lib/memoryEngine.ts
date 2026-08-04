@@ -64,41 +64,77 @@ export function renameThread(threadId: string, newTitle: string, threads: ChatTh
   return saveThreads(updated, userId);
 }
 
-// Smart Auto-Naming Logic for first messages
-export function generateSmartThreadTitle(firstMessage: string, existingThreads: ChatThread[]): string {
-  const text = firstMessage.trim();
-  if (!text) return 'New Conversation';
+// Helper to extract 1-2 key words from text
+function extractKeywords(text: string): string {
+  const clean = text.trim();
+  if (!clean) return 'New Chat';
 
-  const words = text.split(/\s+/);
-  let baseTitle = '';
-
+  const words = clean.split(/\s+/);
   if (words.length <= 2) {
-    // Short 1-2 word messages (e.g. "Hi", "Hello")
-    baseTitle = text.slice(0, 20);
-  } else {
-    // Long queries: extract first 3-4 keywords
-    const stopWords = new Set(['help', 'me', 'please', 'write', 'create', 'how', 'to', 'a', 'an', 'the', 'is', 'in', 'for', 'of', 'and', 'or']);
-    const filtered = words.filter((w) => !stopWords.has(w.toLowerCase()));
-    
-    if (filtered.length >= 2) {
-      baseTitle = filtered.slice(0, 4).join(' ');
-    } else {
-      baseTitle = words.slice(0, 4).join(' ');
+    return clean;
+  }
+
+  const stopWords = new Set(['help', 'me', 'please', 'write', 'create', 'how', 'to', 'a', 'an', 'the', 'is', 'in', 'for', 'of', 'and', 'or', 'can', 'you']);
+  const filtered = words.filter((w) => !stopWords.has(w.toLowerCase()));
+
+  if (filtered.length >= 2) {
+    const result = `${filtered[0]} ${filtered[1]}`;
+    return result.charAt(0).toUpperCase() + result.slice(1);
+  } else if (filtered.length === 1) {
+    return filtered[0].charAt(0).toUpperCase() + filtered[0].slice(1);
+  }
+
+  const fallback = `${words[0]} ${words[1]}`;
+  return fallback.charAt(0).toUpperCase() + fallback.slice(1);
+}
+
+// Advanced Auto-Naming Algorithm with 2nd Message Fallback
+export function generateSmartThreadTitle(
+  messages: Message[],
+  existingThreads: ChatThread[],
+  currentThreadId?: string
+): string {
+  const userMessages = messages.filter((m) => m.role === 'user');
+  if (userMessages.length === 0) return 'New Conversation';
+
+  const firstMsg = userMessages[0].content;
+  const initialTitle = extractKeywords(firstMsg);
+
+  // Check if initialTitle conflicts with another thread
+  const otherThreads = existingThreads.filter((t) => t.id !== currentThreadId);
+  const isDuplicate = otherThreads.some(
+    (t) => (t.title || '').toLowerCase() === initialTitle.toLowerCase()
+  );
+
+  // If initial title is NOT duplicate, return it!
+  if (!isDuplicate) {
+    return initialTitle;
+  }
+
+  // If initial title IS duplicate: Fallback to 2nd user message if available!
+  if (userMessages.length >= 2) {
+    const secondMsg = userMessages[1].content;
+    const secondTitle = extractKeywords(secondMsg);
+
+    // If secondTitle is unique, return it!
+    const isSecondDuplicate = otherThreads.some(
+      (t) => (t.title || '').toLowerCase() === secondTitle.toLowerCase()
+    );
+
+    if (!isSecondDuplicate) {
+      return secondTitle;
     }
-    baseTitle = baseTitle.charAt(0).toUpperCase() + baseTitle.slice(1);
   }
 
-  // Handle duplicate titles
-  const existingTitles = existingThreads.map((t) => (t.title || '').toLowerCase());
-  let finalTitle = baseTitle;
+  // Final fallback if both 1st and 2nd messages match existing titles
   let counter = 2;
-
-  while (existingTitles.includes(finalTitle.toLowerCase())) {
-    finalTitle = `${baseTitle} (${counter})`;
+  let candidate = `${initialTitle} (${counter})`;
+  while (otherThreads.some((t) => (t.title || '').toLowerCase() === candidate.toLowerCase())) {
     counter++;
+    candidate = `${initialTitle} (${counter})`;
   }
 
-  return finalTitle;
+  return candidate;
 }
 
 // Group threads chronologically into Today, Yesterday, and Older
