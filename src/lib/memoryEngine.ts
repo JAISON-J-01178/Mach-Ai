@@ -37,7 +37,7 @@ export function getSavedThreads(userId?: string): ChatThread[] {
   }
 }
 
-// Save threads (UNLIMITED - no 2-chat limit!)
+// Save threads
 export function saveThreads(threads: ChatThread[], userId?: string): ChatThread[] {
   if (typeof window === 'undefined') return threads;
 
@@ -51,6 +51,54 @@ export function saveThreads(threads: ChatThread[], userId?: string): ChatThread[
   }
 
   return sorted;
+}
+
+// Rename thread
+export function renameThread(threadId: string, newTitle: string, threads: ChatThread[], userId?: string): ChatThread[] {
+  const updated = threads.map((t) => {
+    if (t.id === threadId) {
+      return { ...t, title: newTitle.trim(), updatedAt: Date.now() };
+    }
+    return t;
+  });
+  return saveThreads(updated, userId);
+}
+
+// Smart Auto-Naming Logic for first messages
+export function generateSmartThreadTitle(firstMessage: string, existingThreads: ChatThread[]): string {
+  const text = firstMessage.trim();
+  if (!text) return 'New Conversation';
+
+  const words = text.split(/\s+/);
+  let baseTitle = '';
+
+  if (words.length <= 2) {
+    // Short 1-2 word messages (e.g. "Hi", "Hello")
+    baseTitle = text.slice(0, 20);
+  } else {
+    // Long queries: extract first 3-4 keywords
+    const stopWords = new Set(['help', 'me', 'please', 'write', 'create', 'how', 'to', 'a', 'an', 'the', 'is', 'in', 'for', 'of', 'and', 'or']);
+    const filtered = words.filter((w) => !stopWords.has(w.toLowerCase()));
+    
+    if (filtered.length >= 2) {
+      baseTitle = filtered.slice(0, 4).join(' ');
+    } else {
+      baseTitle = words.slice(0, 4).join(' ');
+    }
+    baseTitle = baseTitle.charAt(0).toUpperCase() + baseTitle.slice(1);
+  }
+
+  // Handle duplicate titles
+  const existingTitles = existingThreads.map((t) => (t.title || '').toLowerCase());
+  let finalTitle = baseTitle;
+  let counter = 2;
+
+  while (existingTitles.includes(finalTitle.toLowerCase())) {
+    finalTitle = `${baseTitle} (${counter})`;
+    counter++;
+  }
+
+  return finalTitle;
 }
 
 // Group threads chronologically into Today, Yesterday, and Older
@@ -76,7 +124,7 @@ export function groupThreadsChronologically(threads: ChatThread[]) {
   return { today, yesterday, older };
 }
 
-// Memory persistence (User profile facts)
+// User memory persistence
 export function getUserMemory(defaultName = ''): UserMemory {
   if (typeof window === 'undefined') {
     return { userName: defaultName, preferredLanguage: 'auto' };

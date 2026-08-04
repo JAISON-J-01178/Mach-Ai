@@ -11,7 +11,16 @@ import { AuthModal } from '@/components/AuthModal';
 import { ExportVaultModal } from '@/components/ExportVaultModal';
 import { QuickSplash } from '@/components/QuickSplash';
 import { DeleteConfirmModal } from '@/components/DeleteConfirmModal';
-import { getSavedThreads, saveThreads, getUserMemory, saveUserMemory, ChatThread } from '@/lib/memoryEngine';
+import { RenameModal } from '@/components/RenameModal';
+import {
+  getSavedThreads,
+  saveThreads,
+  getUserMemory,
+  saveUserMemory,
+  generateSmartThreadTitle,
+  renameThread,
+  ChatThread
+} from '@/lib/memoryEngine';
 import { Send, Loader2, RefreshCw, Sparkles, Heart, Code, Globe, Terminal } from 'lucide-react';
 
 function MachiApp() {
@@ -24,7 +33,10 @@ function MachiApp() {
   const [showDesktopSidebar, setShowDesktopSidebar] = useState(true);
 
   const [showExportModal, setShowExportModal] = useState(false);
+
+  // Thread modals state
   const [deletingThread, setDeletingThread] = useState<ChatThread | null>(null);
+  const [renamingThread, setRenamingThread] = useState<ChatThread | null>(null);
 
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string>('');
@@ -32,8 +44,39 @@ function MachiApp() {
   const [language, setLanguage] = useState('auto');
   const [isLoading, setIsLoading] = useState(false);
 
+  // Dynamic visualViewport height for mobile keyboard lock
+  const [viewportHeight, setViewportHeight] = useState<number | null>(null);
+
   const chatEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Listen to VisualViewport changes for mobile virtual keyboard locking
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const updateHeight = () => {
+      if (window.visualViewport) {
+        setViewportHeight(window.visualViewport.height);
+      } else {
+        setViewportHeight(window.innerHeight);
+      }
+    };
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', updateHeight);
+      window.visualViewport.addEventListener('scroll', updateHeight);
+    }
+    window.addEventListener('resize', updateHeight);
+    updateHeight();
+
+    return () => {
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', updateHeight);
+        window.visualViewport.removeEventListener('scroll', updateHeight);
+      }
+      window.removeEventListener('resize', updateHeight);
+    };
+  }, []);
 
   // Cross-device Google User ID sync
   useEffect(() => {
@@ -55,7 +98,7 @@ function MachiApp() {
     }
   }, [user?.email]);
 
-  // Sync memory
+  // Sync user memory
   useEffect(() => {
     if (user && user.name) {
       const mem = getUserMemory(user.name);
@@ -135,6 +178,13 @@ function MachiApp() {
     setDeletingThread(null);
   };
 
+  const handleSaveRenameThread = (newTitle: string) => {
+    if (!renamingThread) return;
+    const updated = renameThread(renamingThread.id, newTitle, threads, user?.email);
+    setThreads(updated);
+    setRenamingThread(null);
+  };
+
   const handleSendMessage = async (customText?: string) => {
     const textToSend = customText || input;
     if (!textToSend.trim() || isLoading || !activeThreadId) return;
@@ -148,12 +198,18 @@ function MachiApp() {
 
     const updatedMessages = [...messages, userMsg];
 
+    // Smart Auto-Naming on first message
     const updatedThreads = threads.map((t) => {
       if (t.id === activeThreadId) {
+        const isFirstMsg = t.messages.length === 0;
+        const newTitle = isFirstMsg
+          ? generateSmartThreadTitle(textToSend, threads)
+          : t.title;
+
         return {
           ...t,
           messages: updatedMessages,
-          title: t.messages.length === 0 ? textToSend.slice(0, 25) : t.title,
+          title: newTitle,
           updatedAt: Date.now()
         };
       }
@@ -246,7 +302,10 @@ function MachiApp() {
   ];
 
   return (
-    <div className="h-[100dvh] w-screen overflow-hidden flex flex-col bg-[#09090b] text-[#fafafa] font-sans selection:bg-[#ffffff] selection:text-[#09090b]">
+    <div
+      style={{ height: viewportHeight ? `${viewportHeight}px` : '100dvh' }}
+      className="w-screen overflow-hidden flex flex-col bg-[#09090b] text-[#fafafa] font-sans selection:bg-[#ffffff] selection:text-[#09090b]"
+    >
       {/* Quick 1.2s Branded Splash */}
       {showSplash && <QuickSplash onFinish={() => setShowSplash(false)} />}
 
@@ -259,6 +318,14 @@ function MachiApp() {
         threadTitle={deletingThread?.title || ''}
         onConfirm={handleConfirmDeleteThread}
         onCancel={() => setDeletingThread(null)}
+      />
+
+      {/* Rename Thread Modal */}
+      <RenameModal
+        isOpen={!!renamingThread}
+        currentTitle={renamingThread?.title || ''}
+        onSave={handleSaveRenameThread}
+        onCancel={() => setRenamingThread(null)}
       />
 
       {/* Export & Memory Vault Modal */}
@@ -280,11 +347,12 @@ function MachiApp() {
           activeThreadId={activeThreadId}
           onSelectThread={(id) => setActiveThreadId(id)}
           onNewChat={handleNewChat}
+          onRequestRenameThread={(t) => setRenamingThread(t)}
           onRequestDeleteThread={(t) => setDeletingThread(t)}
           onOpenAuth={() => setShowAuthModal(true)}
         />
 
-        {/* Main Workspace (Full-height fixed layout) */}
+        {/* Main Workspace */}
         <div className="flex-1 flex flex-col h-full min-w-0 bg-[#09090b] relative overflow-hidden">
           {/* Header Navigation (Pinned Top) */}
           <Header
@@ -296,7 +364,7 @@ function MachiApp() {
           />
 
           {/* Chat Feed Workspace (Scrolls inside center container) */}
-          <main className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 max-w-4xl mx-auto w-full">
+          <main className="flex-1 overflow-y-auto px-4 py-4 sm:px-8 max-w-4xl mx-auto w-full min-h-0">
             {/* Empty State */}
             {messages.length === 0 && (
               <div className="my-auto py-12 flex flex-col items-center justify-center text-center">
@@ -370,7 +438,7 @@ function MachiApp() {
             )}
           </main>
 
-          {/* Input Bar (Locked Bottom) */}
+          {/* Input Bar (Locked Bottom above Virtual Keyboard) */}
           <div className="p-3 sm:p-4 bg-[#09090b] border-t border-[#27272a] flex-shrink-0">
             <div className="max-w-4xl mx-auto">
               <form
@@ -386,7 +454,7 @@ function MachiApp() {
                   onChange={handleTextareaChange}
                   onKeyDown={handleKeyDown}
                   rows={1}
-                  placeholder="Ask Machi AI (Tamil, Tanglish or English)... Press Enter to send, Shift+Enter for new line"
+                  placeholder="Ask Machi AI..."
                   className="w-full bg-transparent border-none outline-none text-sm text-[#fafafa] placeholder-[#71717a] py-1.5 px-2 font-sans resize-none max-h-40 min-h-[36px] leading-relaxed"
                   disabled={isLoading}
                 />

@@ -8,6 +8,7 @@ import {
   Plus,
   MessageSquare,
   Trash2,
+  Edit3,
   LogIn,
   LogOut,
   X,
@@ -25,6 +26,7 @@ interface SidebarProps {
   activeThreadId: string;
   onSelectThread: (id: string) => void;
   onNewChat: () => void;
+  onRequestRenameThread: (thread: ChatThread) => void;
   onRequestDeleteThread: (thread: ChatThread) => void;
   onOpenAuth: () => void;
 }
@@ -37,15 +39,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeThreadId,
   onSelectThread,
   onNewChat,
+  onRequestRenameThread,
   onRequestDeleteThread,
   onOpenAuth
 }) => {
   const { user, logout } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredThreads = threads.filter((t) =>
-    (t.title || 'New Conversation').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Real-time search by title OR message content
+  const filteredThreads = threads.filter((t) => {
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+    const titleMatch = (t.title || 'New Conversation').toLowerCase().includes(q);
+    const messageMatch = t.messages.some((m) => m.content.toLowerCase().includes(q));
+    return titleMatch || messageMatch;
+  });
 
   const { today, yesterday, older } = groupThreadsChronologically(filteredThreads);
 
@@ -73,21 +81,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   : 'bg-[#18181b] border-transparent text-[#a1a1aa] hover:bg-[#27272a]/60 hover:text-[#fafafa]'
               }`}
             >
-              <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex items-center gap-2.5 min-w-0 pr-1">
                 <MessageSquare className={`w-4 h-4 flex-shrink-0 ${isActive ? 'text-[#fafafa]' : 'text-[#71717a]'}`} />
                 <span className="text-xs truncate">{t.title || 'New Conversation'}</span>
               </div>
 
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRequestDeleteThread(t);
-                }}
-                className="p-1.5 rounded-lg text-[#71717a] hover:text-rose-400 hover:bg-[#3f3f46] transition-colors opacity-80 sm:opacity-0 group-hover:opacity-100"
-                title="Delete thread"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+              {/* Action Buttons: Rename (Pen) & Delete (Trash) */}
+              <div className="flex items-center gap-0.5 opacity-90 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRequestRenameThread(t);
+                  }}
+                  className="p-1.5 rounded-lg text-[#a1a1aa] hover:text-[#fafafa] hover:bg-[#3f3f46] transition-colors"
+                  title="Rename thread"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRequestDeleteThread(t);
+                  }}
+                  className="p-1.5 rounded-lg text-[#71717a] hover:text-rose-400 hover:bg-[#3f3f46] transition-colors"
+                  title="Delete thread"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
           );
         })}
@@ -132,7 +153,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           </div>
 
-          {/* + New Chat Button (Executive Solid White) */}
+          {/* + New Chat */}
           <button
             onClick={() => {
               onNewChat();
@@ -144,7 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span>New Chat</span>
           </button>
 
-          {/* Search Input */}
+          {/* Real-Time Search History */}
           <div className="relative">
             <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-[#71717a]" />
             <input
@@ -159,9 +180,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Chronological Threads List */}
         <div className="flex-1 overflow-y-auto my-3 pr-1 min-w-[224px]">
-          {threads.length === 0 ? (
+          {filteredThreads.length === 0 ? (
             <div className="text-center py-8 text-xs text-[#71717a]">
-              No conversations yet. Start a new chat!
+              {searchQuery ? 'No matching history found.' : 'No conversations yet. Start a new chat!'}
             </div>
           ) : (
             <>
