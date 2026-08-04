@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { Copy, Check, Volume2, VolumeX, User } from 'lucide-react';
+import { Copy, Check, ThumbsUp, ThumbsDown, RotateCcw, User } from 'lucide-react';
 
 export interface Message {
   id: string;
@@ -13,11 +13,12 @@ export interface Message {
 
 interface MessageItemProps {
   message: Message;
+  onRegenerate?: () => void;
 }
 
-export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
+export const MessageItem: React.FC<MessageItemProps> = ({ message, onRegenerate }) => {
   const [copied, setCopied] = useState(false);
-  const [speaking, setSpeaking] = useState(false);
+  const [feedback, setFeedback] = useState<'up' | 'down' | null>(null);
 
   const isUser = message.role === 'user';
 
@@ -25,37 +26,6 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     navigator.clipboard.writeText(message.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleSpeak = () => {
-    if (!('speechSynthesis' in window)) {
-      alert('Speech synthesis is not supported in your browser.');
-      return;
-    }
-
-    if (speaking) {
-      window.speechSynthesis.cancel();
-      setSpeaking(false);
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(message.content);
-
-    const voices = window.speechSynthesis.getVoices();
-    const taVoice = voices.find((v) => v.lang.includes('ta') || v.lang.includes('IN'));
-    if (taVoice) {
-      utterance.voice = taVoice;
-    }
-
-    utterance.rate = 1.0;
-    utterance.pitch = 1.0;
-
-    utterance.onstart = () => setSpeaking(true);
-    utterance.onend = () => setSpeaking(false);
-    utterance.onerror = () => setSpeaking(false);
-
-    window.speechSynthesis.speak(utterance);
   };
 
   const renderFormattedContent = (content: string) => {
@@ -79,7 +49,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     return parts.map((part, index) => {
       if (part.type === 'code') {
         return (
-          <div key={index} className="my-3 rounded-xl overflow-hidden border border-slate-800 bg-slate-950 font-mono text-xs text-cyan-300 shadow-inner">
+          <div key={index} className="my-3 rounded-xl overflow-hidden border border-slate-700 bg-slate-950 font-mono text-xs text-sky-300">
             <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-[11px] text-slate-400">
               <span>Code Snippet</span>
               <button
@@ -87,10 +57,10 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
                 className="hover:text-white transition-colors flex items-center gap-1"
               >
                 <Copy className="w-3 h-3" />
-                <span>Copy</span>
+                <span>Copy Code</span>
               </button>
             </div>
-            <pre className="p-3 overflow-x-auto whitespace-pre-wrap">{part.text}</pre>
+            <pre className="p-3.5 overflow-x-auto whitespace-pre-wrap leading-relaxed">{part.text}</pre>
           </div>
         );
       }
@@ -109,21 +79,19 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     <div
       className={`flex gap-3 sm:gap-4 p-4 rounded-2xl transition-all ${
         isUser
-          ? 'bg-slate-900/90 border border-slate-800 ml-auto max-w-[88%] sm:max-w-[80%]'
-          : 'bg-slate-950/80 border border-slate-800/80 max-w-[95%] sm:max-w-[90%]'
+          ? 'bg-slate-800/80 border border-slate-700/80 ml-auto max-w-[88%] sm:max-w-[80%]'
+          : 'bg-slate-900/90 border border-slate-800 max-w-[95%] sm:max-w-[90%]'
       }`}
     >
       {/* Avatar */}
       <div className="flex-shrink-0">
         {isUser ? (
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-md">
-            <User className="w-4 h-4" />
+          <div className="w-8 h-8 rounded-xl bg-sky-600 flex items-center justify-center text-slate-950 shadow-md">
+            <User className="w-4 h-4 text-white" />
           </div>
         ) : (
-          <div className="relative w-8 h-8 rounded-xl overflow-hidden p-0.5 bg-gradient-to-tr from-cyan-500 to-purple-600 shadow-md">
-            <div className="w-full h-full bg-slate-950 rounded-[10px] overflow-hidden relative">
-              <Image src="/logo.jpg" alt="MACHI Ai" fill className="object-cover" />
-            </div>
+          <div className="relative w-8 h-8 rounded-xl overflow-hidden border border-slate-700 shadow-md">
+            <Image src="/logo.jpg" alt="Mach-AI" fill className="object-cover" />
           </div>
         )}
       </div>
@@ -132,7 +100,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2 mb-1">
           <span className="text-xs font-bold text-slate-200 font-heading">
-            {isUser ? 'You' : 'MACHI Ai'}
+            {isUser ? 'You' : 'Mach-AI'}
           </span>
           <span className="text-[10px] text-slate-500">{message.timestamp}</span>
         </div>
@@ -141,23 +109,13 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
           {renderFormattedContent(message.content)}
         </div>
 
+        {/* Action Toolbar for AI responses */}
         {!isUser && (
-          <div className="flex items-center gap-3 mt-3 pt-2 border-t border-slate-900 text-slate-400 text-xs">
-            <button
-              onClick={handleSpeak}
-              className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-colors ${
-                speaking ? 'bg-cyan-600 text-white' : 'hover:text-cyan-300 hover:bg-slate-900'
-              }`}
-              title="Text to Speech"
-            >
-              {speaking ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
-              <span>{speaking ? 'Stop' : 'Listen'}</span>
-            </button>
-
+          <div className="flex items-center gap-3 mt-3 pt-2 border-t border-slate-800 text-slate-400 text-xs">
             <button
               onClick={handleCopy}
-              className="flex items-center gap-1.5 px-2 py-1 rounded-md hover:text-cyan-300 hover:bg-slate-900 transition-colors"
-              title="Copy response"
+              className="flex items-center gap-1 px-2 py-1 rounded-md hover:text-sky-300 hover:bg-slate-800 transition-colors"
+              title="Copy message"
             >
               {copied ? (
                 <>
@@ -171,6 +129,38 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
                 </>
               )}
             </button>
+
+            {onRegenerate && (
+              <button
+                onClick={onRegenerate}
+                className="flex items-center gap-1 px-2 py-1 rounded-md hover:text-sky-300 hover:bg-slate-800 transition-colors"
+                title="Regenerate response"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Regenerate</span>
+              </button>
+            )}
+
+            <div className="flex items-center gap-1 ml-auto">
+              <button
+                onClick={() => setFeedback(feedback === 'up' ? null : 'up')}
+                className={`p-1 rounded-md transition-colors ${
+                  feedback === 'up' ? 'text-sky-400 bg-sky-500/10' : 'hover:text-slate-200 hover:bg-slate-800'
+                }`}
+                title="Helpful"
+              >
+                <ThumbsUp className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={() => setFeedback(feedback === 'down' ? null : 'down')}
+                className={`p-1 rounded-md transition-colors ${
+                  feedback === 'down' ? 'text-rose-400 bg-rose-500/10' : 'hover:text-slate-200 hover:bg-slate-800'
+                }`}
+                title="Not helpful"
+              >
+                <ThumbsDown className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         )}
       </div>

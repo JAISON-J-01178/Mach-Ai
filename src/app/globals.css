@@ -4,79 +4,64 @@
 
 @layer base {
   :root {
-    --font-baloo: 'Baloo 2', system-ui, sans-serif;
+    --font-inter: 'Inter', system-ui, sans-serif;
     --font-noto-tamil: 'Noto Sans Tamil', system-ui, sans-serif;
-    --font-outfit: 'Outfit', system-ui, sans-serif;
   }
 
   body {
-    font-family: var(--font-noto-tamil), var(--font-outfit), sans-serif;
-    background-color: #060913;
-    background-image: 
-      radial-gradient(ellipse at 50% -10%, rgba(127, 0, 255, 0.15) 0%, transparent 60%),
-      radial-gradient(ellipse at 90% 100%, rgba(0, 242, 254, 0.08) 0%, transparent 50%),
-      radial-gradient(ellipse at 10% 80%, rgba(139, 92, 246, 0.06) 0%, transparent 50%);
-    background-attachment: fixed;
-    color: #f1f5f9;
+    font-family: var(--font-inter), var(--font-noto-tamil), system-ui, sans-serif;
+    background-color: #0f172a; /* Slate 900 */
+    color: #f8fafc; /* Slate 50 */
+    line-height: 1.6;
     overflow-x: hidden;
   }
 
-  h1, h2, h3, .font-heading {
-    font-family: var(--font-baloo), var(--font-noto-tamil), sans-serif;
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-inter), var(--font-noto-tamil), system-ui, sans-serif;
+    line-height: 1.4;
   }
 }
 
-/* Bespoke Signature MNC Glassmorphism */
+/* Minimalist Glass & Panel Styling */
 .glass-panel {
-  background: rgba(10, 15, 29, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(15, 23, 42, 0.85); /* Slate 900 with backdrop opacity */
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.glass-panel-hover {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.glass-panel-hover:hover {
-  background: rgba(16, 24, 45, 0.9);
-  border-color: rgba(0, 242, 254, 0.25);
-  box-shadow: 0 10px 30px -10px rgba(0, 242, 254, 0.1);
-}
-
 .glass-input {
-  background: rgba(8, 12, 23, 0.9);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0f172a;
+  border: 1px solid #334155; /* Slate 700 */
 }
 
 .glass-input:focus-within {
-  border-color: rgba(0, 242, 254, 0.5);
-  box-shadow: 0 0 25px -5px rgba(0, 242, 254, 0.25);
+  border-color: #38bdf8; /* Sky 400 */
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
 }
 
-/* Signature Gradient Text */
-.gradient-text-cyan {
-  background: linear-gradient(135deg, #ffffff 0%, #00f2fe 60%, #9d4edd 100%);
+/* Clean Gradient Accent */
+.gradient-text-sky {
+  background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 50%, #38bdf8 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-/* Custom Scrollbar */
+/* Minimalist Scrollbar */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #060913;
+  background: #0f172a;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.14);
+  background: #334155;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 242, 254, 0.4);
+  background: #475569;
 }

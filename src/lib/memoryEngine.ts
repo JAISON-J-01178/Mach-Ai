@@ -10,19 +10,25 @@ export interface ChatThread {
 }
 
 export interface UserMemory {
+  userId?: string;
   userName: string;
   preferredLanguage: string;
-  personalNotes: string[];
 }
 
-const THREADS_KEY = 'machi_ai_threads';
-const MEMORY_KEY = 'machi_ai_user_memory';
+const DEFAULT_THREADS_KEY = 'mach_ai_threads_guest';
+const MEMORY_KEY = 'mach_ai_user_memory';
 
-// Get all saved threads (max 2)
-export function getSavedThreads(): ChatThread[] {
+function getStorageKey(userId?: string) {
+  if (!userId) return DEFAULT_THREADS_KEY;
+  return `mach_ai_threads_${userId}`;
+}
+
+// Get all saved threads (UNLIMITED)
+export function getSavedThreads(userId?: string): ChatThread[] {
   if (typeof window === 'undefined') return [];
   try {
-    const raw = localStorage.getItem(THREADS_KEY);
+    const key = getStorageKey(userId);
+    const raw = localStorage.getItem(key);
     if (!raw) return [];
     const threads: ChatThread[] = JSON.parse(raw);
     return threads.sort((a, b) => b.updatedAt - a.updatedAt);
@@ -31,37 +37,56 @@ export function getSavedThreads(): ChatThread[] {
   }
 }
 
-// Save threads enforcing the 2-conversation limit rule
-export function saveThreads(threads: ChatThread[]): ChatThread[] {
+// Save threads (UNLIMITED - no 2-chat limit!)
+export function saveThreads(threads: ChatThread[], userId?: string): ChatThread[] {
   if (typeof window === 'undefined') return threads;
 
-  // Sort descending by updatedAt
   const sorted = [...threads].sort((a, b) => b.updatedAt - a.updatedAt);
-
-  // Auto delete older threads if count exceeds 2
-  const maxThreads = 2;
-  const prunedThreads = sorted.slice(0, maxThreads);
+  const key = getStorageKey(userId);
 
   try {
-    localStorage.setItem(THREADS_KEY, JSON.stringify(prunedThreads));
+    localStorage.setItem(key, JSON.stringify(sorted));
   } catch {
     // ignore
   }
 
-  return prunedThreads;
+  return sorted;
 }
 
-// Memory persistence (Stores user name & details across sessions)
+// Group threads chronologically into Today, Yesterday, and Older
+export function groupThreadsChronologically(threads: ChatThread[]) {
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const yesterdayStart = todayStart - 86400000;
+
+  const today: ChatThread[] = [];
+  const yesterday: ChatThread[] = [];
+  const older: ChatThread[] = [];
+
+  threads.forEach((t) => {
+    if (t.updatedAt >= todayStart) {
+      today.push(t);
+    } else if (t.updatedAt >= yesterdayStart) {
+      yesterday.push(t);
+    } else {
+      older.push(t);
+    }
+  });
+
+  return { today, yesterday, older };
+}
+
+// Memory persistence (User profile facts)
 export function getUserMemory(defaultName = ''): UserMemory {
   if (typeof window === 'undefined') {
-    return { userName: defaultName, preferredLanguage: 'auto', personalNotes: [] };
+    return { userName: defaultName, preferredLanguage: 'auto' };
   }
 
   try {
     const raw = localStorage.getItem(MEMORY_KEY);
     if (raw) {
       const memory: UserMemory = JSON.parse(raw);
-      if (defaultName && (!memory.userName || memory.userName === 'Machi User')) {
+      if (defaultName && (!memory.userName || memory.userName === 'Mach User')) {
         memory.userName = defaultName;
       }
       return memory;
@@ -71,9 +96,8 @@ export function getUserMemory(defaultName = ''): UserMemory {
   }
 
   const initialMemory: UserMemory = {
-    userName: defaultName || 'Machi User',
-    preferredLanguage: 'auto',
-    personalNotes: []
+    userName: defaultName || 'Mach User',
+    preferredLanguage: 'auto'
   };
 
   if (typeof window !== 'undefined') {
